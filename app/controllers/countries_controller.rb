@@ -5,14 +5,15 @@ class CountriesController < ApplicationController
   # GET /countries or /countries.json
   def index
     @countries = Country.all
-    @countries_data = @countries.map { |c| { iso_code: c.iso_code, visited: c.visited } }
+    @countries_data = @countries.map { |c| { name: c.name, visited: c.visited } }
   end
 
-  # PATCH /countries/update_visited
+  # PATCH /update_visited_countries
   def update_visited
     visited_ids = params[:country_ids] || []
     Country.update_all(visited: false)
     Country.where(id: visited_ids).update_all(visited: true)
+    flash[:notice] = "Updated visited countries: #{visited_ids.join(', ')}"
     redirect_to countries_path
   end
 

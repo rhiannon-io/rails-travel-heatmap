@@ -9,7 +9,7 @@
 #   end
 
 countries = [
-  { name: "United States", iso_code: "USA", visited: true },
+  { name: "United States of America", iso_code: "USA", visited: true },
   { name: "Canada", iso_code: "CAN", visited: true },
   { name: "United Kingdom", iso_code: "GBR", visited: true },
   { name: "France", iso_code: "FRA", visited: true },
@@ -24,6 +24,6 @@ countries = [
 countries.each do |country|
   Country.find_or_create_by!(iso_code: country[:iso_code]) do |c|
     c.name = country[:name]
-    c.visit_count = country[:visit_count]
+    c.visited = country[:visited]
   end
 end

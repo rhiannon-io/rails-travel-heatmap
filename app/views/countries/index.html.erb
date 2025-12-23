@@ -4,7 +4,7 @@
 
 <h1>Countries</h1>
 
-<div data-controller="map" data-map-data-value="<%= @countries_data.to_json %>" style="width: 960px; height: 500px;"></div>
+<div data-controller="map" data-map-data-value='<%= @countries_data.to_json %>' style="width: 960px; height: 500px;"></div>
 
 <h2>Select Visited Countries</h2>
 <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>

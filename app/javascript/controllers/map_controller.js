@@ -6,12 +6,14 @@ export default class extends Controller {
   static values = { data: Array }
 
   connect() {
-    console.log("Map connected", this.dataValue)
+    console.log("Map connected", this.dataValue, typeof this.dataValue)
     this.renderMap()
   }
 
   renderMap() {
+    console.log("Rendering map")
     const data = this.dataValue
+    console.log("Data:", data)
     const width = 960
     const height = 500
 
@@ -28,14 +30,15 @@ export default class extends Controller {
 
     const color = d3.scaleOrdinal(d3.schemeCategory10)
 
-    d3.json("https://unpkg.com/world-atlas@2/countries-110m.json").then(world => {
+    d3.json("/countries-110m.json").then(world => {
       svg.append("g")
         .selectAll("path")
         .data(topojson.feature(world, world.objects.countries).features)
         .enter().append("path")
         .attr("d", path)
         .attr("fill", d => {
-          const country = data.find(c => c.iso_code === d.properties.ISO_A3)
+          const country = data.find(c => c.name === d.properties.name)
+
           return country && country.visited ? "steelblue" : "#ccc"
         })
         .attr("stroke", "#fff")
