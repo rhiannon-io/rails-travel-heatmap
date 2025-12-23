@@ -1,0 +1,29 @@
+<p style="color: green"><%= notice %></p>
+
+<% content_for :title, "Countries" %>
+
+<h1>Countries</h1>
+
+<div data-controller="map" data-map-data-value="<%= @countries_data.to_json %>" style="width: 960px; height: 500px;"></div>
+
+<h2>Select Visited Countries</h2>
+<%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>
+  <% @countries.each do |country| %>
+    <div>
+      <%= check_box_tag "country_ids[]", country.id, country.visited %>
+      <%= label_tag "country_ids_#{country.id}", country.name %>
+    </div>
+  <% end %>
+  <%= submit_tag "Update Visited Countries" %>
+<% end %>
+
+<div id="countries">
+  <% @countries.each do |country| %>
+    <%= render country %>
+    <p>
+      <%= link_to "Show this country", country %>
+    </p>
+  <% end %>
+</div>
+
+<%= link_to "New country", new_country_path %>
