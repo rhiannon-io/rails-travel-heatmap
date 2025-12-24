@@ -31,7 +31,7 @@ export default class extends Controller {
     const color = d3.scaleOrdinal(d3.schemeCategory10)
 
     d3.json("/ne_countries_admin_0.geojson").then(geojson => {
-      svg.append("g")
+      const countries = svg.append("g")
         .selectAll("path")
         .data(geojson.features)
         .enter().append("path")
@@ -46,8 +46,34 @@ export default class extends Controller {
         })
         .attr("stroke", "#fff")
         .attr("stroke-width", 0.5)
+        .style("cursor", "pointer")
+        .on("click", (event, d) => {
+          // Find matching country in database
+          let country = data.find(c => c.iso_code && (c.iso_code === d.properties["ISO3166-1-Alpha-3"] || c.iso_code === d.properties["ISO3166-1-Alpha-2"]))
+          if (!country) {
+            country = data.find(c => c.name === d.properties.name)
+          }
+          
+          if (country) {
+            // Toggle the visited status
+            this.toggleCountry(country.id, event.currentTarget)
+          }
+        })
     }).catch(error => {
       console.error("Error loading map data:", error)
     })
+  }
+
+  toggleCountry(countryId, pathElement) {
+    // Toggle the checkbox
+    const checkbox = document.getElementById(`country_${countryId}`)
+    if (checkbox) {
+      checkbox.checked = !checkbox.checked
+    }
+    
+    // Toggle the map color
+    const currentColor = d3.select(pathElement).attr("fill")
+    const newColor = currentColor === "steelblue" ? "#ccc" : "steelblue"
+    d3.select(pathElement).attr("fill", newColor)
   }
 }

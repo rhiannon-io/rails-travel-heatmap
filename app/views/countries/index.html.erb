@@ -9,10 +9,14 @@
 <h2>Select Visited Countries</h2>
 <p style="color: #666; margin-bottom: 1rem;">Check the countries you've visited and click "Update Visited Countries" to save.</p>
 
+<div style="margin-bottom: 1rem;">
+  <input type="text" id="country-search" placeholder="Search countries..." style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;" />
+</div>
+
 <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>
-  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
+  <div id="country-list" style="margin-bottom: 1rem;">
     <% @countries.each do |country| %>
-      <div style="padding: 0.25rem;">
+      <div class="country-item" data-country-name="<%= country.name.downcase %>" style="padding: 0.25rem;">
         <%= check_box_tag "country_ids[]", country.id, country.visited, id: "country_#{country.id}" %>
         <%= label_tag "country_#{country.id}", country.name, style: "margin-left: 0.5rem; cursor: pointer;" %>
       </div>
@@ -20,3 +24,23 @@
   </div>
   <%= submit_tag "Update Visited Countries", style: "padding: 0.75rem 1.5rem; background-color: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
 <% end %>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('country-search');
+    const countryItems = document.querySelectorAll('.country-item');
+    
+    searchInput.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase().trim();
+      
+      countryItems.forEach(function(item) {
+        const countryName = item.getAttribute('data-country-name');
+        if (countryName.includes(searchTerm)) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  });
+</script>

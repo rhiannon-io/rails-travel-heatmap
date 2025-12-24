@@ -5,7 +5,7 @@ class CountriesController < ApplicationController
   # GET /countries or /countries.json
   def index
     @countries = Country.order(:name)
-    @countries_data = @countries.map { |c| { name: c.name, visited: c.visited } }
+    @countries_data = @countries.map { |c| { id: c.id, name: c.name, iso_code: c.iso_code, visited: c.visited } }
   end
 
   # PATCH /update_visited_countries
