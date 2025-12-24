@@ -1,0 +1,2 @@
+class ShareableMap < ApplicationRecord
+end

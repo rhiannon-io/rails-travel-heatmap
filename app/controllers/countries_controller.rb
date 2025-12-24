@@ -1,11 +1,72 @@
 class CountriesController < ApplicationController
   before_action :set_country, only: %i[ show edit update destroy ]
-  skip_before_action :verify_authenticity_token, only: :update_visited
+  skip_before_action :verify_authenticity_token, only: [:update_visited, :create_shared]
 
   # GET /countries or /countries.json
   def index
     @countries = Country.order(:name)
     @countries_data = @countries.map { |c| { id: c.id, name: c.name, iso_code: c.iso_code, visited: c.visited, visit_count: c.visit_count } }
+    @shared_mode = false
+    @shared_map = nil
+  end
+
+  # GET /shared/:token
+  def shared
+    @shared_map = SharedMap.find_by(token: params[:token])
+    
+    if @shared_map.nil?
+      redirect_to root_path, alert: "Shared map not found"
+      return
+    end
+    
+    @countries = Country.order(:name)
+    @shared_mode = true
+    
+    # Parse the stored data (format: {"USA":5,"GBR":3})
+    shared_data = JSON.parse(@shared_map.data)
+    
+    # Map shared data to countries, preserving visit counts
+    @countries_data = @countries.map do |c|
+      if shared_data.key?(c.iso_code)
+        { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: shared_data[c.iso_code] }
+      else
+        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1 }
+      end
+    end
+    
+    render :index
+  end
+  
+  # POST /countries/create_shared
+  def create_shared
+    # Get current user's visited countries
+    visited_countries = Country.where(visited: true)
+    
+    # Build data hash with ISO codes and visit counts
+    data = {}
+    visited_countries.each do |country|
+      data[country.iso_code] = country.visit_count
+    end
+    
+    # Check if updating an existing shared map
+    token = params[:token]
+    if token.present?
+      shared_map = SharedMap.find_by(token: token)
+      if shared_map
+        shared_map.update!(data: data.to_json)
+      else
+        # Token not found, create new one
+        shared_map = SharedMap.create!(data: data.to_json)
+      end
+    else
+      # Create new shared map
+      shared_map = SharedMap.create!(data: data.to_json)
+    end
+    
+    # Generate the full URL
+    share_url = "#{request.base_url}/shared/#{shared_map.token}"
+    
+    render json: { token: shared_map.token, url: share_url }
   end
 
   # PATCH /update_visited_countries

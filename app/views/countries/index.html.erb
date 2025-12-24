@@ -6,31 +6,85 @@
 
 <div data-controller="map" data-map-data-value='<%= @countries_data.to_json %>' style="width: 960px; height: 500px; margin-bottom: 2rem;"></div>
 
-<h2>Select Visited Countries</h2>
-<p style="color: #666; margin-bottom: 1rem;">Check the countries you've visited, and optionally enter how many times. Default is 1.</p>
-
-<div style="margin-bottom: 1rem;">
-  <input type="text" id="country-search" placeholder="Search countries..." style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;" />
-</div>
-
-<%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>
-  <div id="country-list" style="margin-bottom: 1rem;">
-    <% @countries.each do |country| %>
-      <div class="country-item" data-country-name="<%= country.name.downcase %>" style="padding: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
-        <%= check_box_tag "countries[#{country.id}][visited]", "1", country.visited, id: "country_#{country.id}", class: "country-checkbox", data: { country_id: country.id } %>
-        <%= label_tag "country_#{country.id}", country.name, style: "margin-left: 0.5rem; cursor: pointer; flex: 1; max-width: 250px;" %>
-        <span style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
-          <label for="country_count_<%= country.id %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
-          <%= number_field_tag "countries[#{country.id}][visit_count]", country.visit_count, min: 1, max: 99, id: "country_count_#{country.id}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country.visited, class: "visit-count-input" %>
-        </span>
+<% if @shared_mode %>
+  <div style="background-color: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem;">
+    <h2 style="margin-top: 0;">🌍 Shared Travel Map</h2>
+    <p style="color: #666; margin-bottom: 0.5rem;">You're viewing someone's travel heatmap!</p>
+    <p style="color: #666; margin-bottom: 0;">
+      <a href="<%= countries_path %>" style="color: #0066cc; text-decoration: none;">Create your own map →</a>
+    </p>
+  </div>
+<% else %>
+  <div style="margin-bottom: 1.5rem;">
+    <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">💡 Tip: The share buttons automatically save your changes first.</p>
+    <button type="button" id="share-button" style="padding: 0.75rem 1.5rem; background-color: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 1rem;">
+      📤 Share Your Map
+    </button>
+    <button type="button" id="update-shared-button" style="display: none; padding: 0.75rem 1.5rem; background-color: #ff9800; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 1rem; margin-left: 0.5rem;">
+      🔄 Update Shared Link
+    </button>
+    </button>
+    <div id="share-link-container" style="display: none; background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 1rem; margin-top: 0.5rem;">
+      <p style="margin-top: 0; color: #666; font-size: 0.9rem;">Share this link with your friends:</p>
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <input type="text" id="share-link-input" readonly style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem;" />
+        <button type="button" id="copy-link-button" style="padding: 0.5rem 1rem; background-color: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; white-space: nowrap;">
+          📋 Copy
+        </button>
       </div>
+      <p id="copy-success" style="display: none; color: #4caf50; margin-bottom: 0; margin-top: 0.5rem; font-size: 0.9rem;">✓ Link copied to clipboard!</p>
+    </div>
+  </div>
+
+  <h2>Select Visited Countries</h2>
+  <p style="color: #666; margin-bottom: 1rem;">Check the countries you've visited, and optionally enter how many times. Default is 1.</p>
+
+  <div style="margin-bottom: 1rem;">
+    <input type="text" id="country-search" placeholder="Search countries..." style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;" />
+  </div>
+<% end %>
+
+<% if @shared_mode %>
+  <h2>Visited Countries</h2>
+  <div style="margin-bottom: 1rem;">
+    <% visited_countries = @countries_data.select { |c| c[:visited] }.sort_by { |c| c[:name] } %>
+    <% if visited_countries.any? %>
+      <p style="color: #666; margin-bottom: 0.5rem;">This traveler has visited <%= visited_countries.count %> <%= visited_countries.count == 1 ? 'country' : 'countries' %>:</p>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem;">
+        <% visited_countries.each do |country| %>
+          <div style="background-color: #f5f5f5; border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem 1rem; display: flex; align-items: center; gap: 0.5rem;">
+            <span style="font-weight: 500;"><%= country[:name] %></span>
+            <span style="background-color: #0066cc; color: white; border-radius: 12px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;">
+              <%= country[:visit_count] %>
+            </span>
+          </div>
+        <% end %>
+      </div>
+    <% else %>
+      <p style="color: #999;">No countries visited yet.</p>
     <% end %>
   </div>
-  <%= submit_tag "Update Visited Countries", style: "padding: 0.75rem 1.5rem; background-color: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
+<% else %>
+  <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>
+    <div id="country-list" style="margin-bottom: 1rem;">
+      <% @countries.each do |country| %>
+        <div class="country-item" data-country-name="<%= country.name.downcase %>" style="padding: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+          <%= check_box_tag "countries[#{country.id}][visited]", "1", country.visited, id: "country_#{country.id}", class: "country-checkbox", data: { country_id: country.id } %>
+          <%= label_tag "country_#{country.id}", country.name, style: "margin-left: 0.5rem; cursor: pointer; flex: 1; max-width: 250px;" %>
+          <span style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
+            <label for="country_count_<%= country.id %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
+            <%= number_field_tag "countries[#{country.id}][visit_count]", country.visit_count, min: 1, max: 99, id: "country_count_#{country.id}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country.visited, class: "visit-count-input" %>
+          </span>
+        </div>
+      <% end %>
+    </div>
+    <%= submit_tag "Update Visited Countries", style: "padding: 0.75rem 1.5rem; background-color: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
+  <% end %>
 <% end %>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    <% unless @shared_mode %>
     const searchInput = document.getElementById('country-search');
     const countryItems = document.querySelectorAll('.country-item');
     
@@ -63,5 +117,107 @@
         }
       });
     });
+    
+    // Share button functionality
+    const shareButton = document.getElementById('share-button');
+    const updateSharedButton = document.getElementById('update-shared-button');
+    const shareLinkContainer = document.getElementById('share-link-container');
+    const shareLinkInput = document.getElementById('share-link-input');
+    const copyLinkButton = document.getElementById('copy-link-button');
+    const copySuccess = document.getElementById('copy-success');
+    
+    // Check if user has an existing shared map token
+    let sharedMapToken = localStorage.getItem('sharedMapToken');
+    if (sharedMapToken) {
+      updateSharedButton.style.display = 'inline-block';
+    }
+    
+    async function createOrUpdateSharedMap(token = null) {
+      const button = token ? updateSharedButton : shareButton;
+      const originalText = button.textContent;
+      button.disabled = true;
+      button.textContent = '⏳ ' + (token ? 'Updating...' : 'Generating link...');
+      
+      try {
+        // First, save the countries to the database
+        const form = document.querySelector('form');
+        const formData = new FormData(form);
+        
+        button.textContent = '⏳ Saving changes...';
+        const saveResponse = await fetch(form.action, {
+          method: 'POST',
+          headers: {
+            'X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]').content
+          },
+          body: formData
+        });
+        
+        if (!saveResponse.ok) {
+          throw new Error('Failed to save countries');
+        }
+        
+        // Now update the shared map
+        button.textContent = '⏳ ' + (token ? 'Updating link...' : 'Generating link...');
+        const body = token ? JSON.stringify({ token: token }) : '{}';
+        const response = await fetch('/countries/create_shared', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]').content
+          },
+          body: body
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to create shared link');
+        }
+        
+        const data = await response.json();
+        
+        // Store token in localStorage
+        localStorage.setItem('sharedMapToken', data.token);
+        sharedMapToken = data.token;
+        
+        // Show update button if it was hidden
+        updateSharedButton.style.display = 'inline-block';
+        
+        // Display the shareable URL
+        shareLinkInput.value = data.url;
+        shareLinkContainer.style.display = 'block';
+        copySuccess.style.display = 'none';
+        
+        // Show success message
+        if (token) {
+          const updateSuccess = document.createElement('p');
+          updateSuccess.style.color = '#4caf50';
+          updateSuccess.style.marginTop = '0.5rem';
+          updateSuccess.style.fontSize = '0.9rem';
+          updateSuccess.textContent = '✓ Shared map updated! Anyone with your link will see the latest changes.';
+          shareLinkContainer.appendChild(updateSuccess);
+          setTimeout(() => updateSuccess.remove(), 5000);
+        }
+      } catch (error) {
+        alert('Error ' + (token ? 'updating' : 'creating') + ' shareable link. Please try again.');
+        console.error(error);
+      } finally {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }
+    
+    shareButton.addEventListener('click', () => createOrUpdateSharedMap());
+    updateSharedButton.addEventListener('click', () => createOrUpdateSharedMap(sharedMapToken));
+    
+    // Copy to clipboard functionality
+    copyLinkButton.addEventListener('click', function() {
+      shareLinkInput.select();
+      navigator.clipboard.writeText(shareLinkInput.value).then(function() {
+        copySuccess.style.display = 'block';
+        setTimeout(function() {
+          copySuccess.style.display = 'none';
+        }, 3000);
+      });
+    });
+    <% end %>
   });
 </script>
