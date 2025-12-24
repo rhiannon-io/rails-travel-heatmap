@@ -42,7 +42,16 @@ export default class extends Controller {
           if (!country) {
             country = data.find(c => c.name === d.properties.name)
           }
-          return country && country.visited ? "steelblue" : "#ccc"
+          
+          if (country && country.visited) {
+            // Color intensity based on visit count
+            const visitCount = country.visit_count || 1
+            if (visitCount === 1) return "#87CEEB" // Light blue for 1 visit
+            if (visitCount === 2) return "#4682B4" // Medium blue for 2 visits
+            if (visitCount >= 3 && visitCount < 5) return "#1E90FF" // Deeper blue for 3-4 visits
+            return "#00008B" // Dark blue for 5+ visits
+          }
+          return "#ccc"
         })
         .attr("stroke", "#fff")
         .attr("stroke-width", 0.5)
@@ -69,11 +78,14 @@ export default class extends Controller {
     const checkbox = document.getElementById(`country_${countryId}`)
     if (checkbox) {
       checkbox.checked = !checkbox.checked
+      
+      // Trigger change event to enable/disable visit count input
+      checkbox.dispatchEvent(new Event('change'))
     }
     
     // Toggle the map color
     const currentColor = d3.select(pathElement).attr("fill")
-    const newColor = currentColor === "steelblue" ? "#ccc" : "steelblue"
+    const newColor = currentColor === "#ccc" ? "#87CEEB" : "#ccc"
     d3.select(pathElement).attr("fill", newColor)
   }
 }
