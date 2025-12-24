@@ -82,7 +82,7 @@ Rails.application.configure do
   config.hosts << "vigilant-giggle-xp5vxwppjqjcpj57-3002.app.github.dev"
   config.hosts << "vigilant-giggle-xp5vxwppjqjcpj57-3000.app.github.dev"
   config.action_controller.default_url_options = { host: "vigilant-giggle-xp5vxwppjqjcpj57-3000.app.github.dev", protocol: "https" }
-  
+
   # Devise mailer configuration
-  config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
+  config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
 end

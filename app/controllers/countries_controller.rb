@@ -1,26 +1,26 @@
 class CountriesController < ApplicationController
-  before_action :authenticate_user!, except: [:shared]
+  before_action :authenticate_user!, except: [ :shared ]
   before_action :set_country, only: %i[ show edit update destroy ]
-  skip_before_action :verify_authenticity_token, only: [:update_visited, :create_shared]
+  skip_before_action :verify_authenticity_token, only: [ :update_visited, :create_shared ]
 
   # GET /countries or /countries.json
   def index
     @countries = Country.order(:name)
-    
+
     # Get user's visited countries through the join table
     user_country_map = current_user.user_countries.includes(:country).index_by(&:country_id)
-    
+
     @countries_data = @countries.map do |c|
       user_country = user_country_map[c.id]
-      { 
-        id: c.id, 
-        name: c.name, 
-        iso_code: c.iso_code, 
+      {
+        id: c.id,
+        name: c.name,
+        iso_code: c.iso_code,
         visited: user_country.present?,
         visit_count: user_country&.visit_count || 1
       }
     end
-    
+
     @shared_mode = false
     @shared_map = nil
   end
@@ -28,18 +28,18 @@ class CountriesController < ApplicationController
   # GET /shared/:token
   def shared
     @shared_map = SharedMap.find_by(token: params[:token])
-    
+
     if @shared_map.nil?
       redirect_to root_path, alert: "Shared map not found"
       return
     end
-    
+
     @countries = Country.order(:name)
     @shared_mode = true
-    
+
     # Parse the stored data (format: {"USA":5,"GBR":3})
     shared_data = JSON.parse(@shared_map.data)
-    
+
     # Map shared data to countries, preserving visit counts
     @countries_data = @countries.map do |c|
       if shared_data.key?(c.iso_code)
@@ -48,21 +48,21 @@ class CountriesController < ApplicationController
         { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1 }
       end
     end
-    
+
     render :index
   end
-  
+
   # POST /countries/create_shared
   def create_shared
     # Get current user's visited countries through the join table
     user_countries = current_user.user_countries.includes(:country)
-    
+
     # Build data hash with ISO codes and visit counts
     data = {}
     user_countries.each do |uc|
       data[uc.country.iso_code] = uc.visit_count
     end
-    
+
     # Check if updating an existing shared map
     token = params[:token]
     if token.present?
@@ -77,20 +77,20 @@ class CountriesController < ApplicationController
       # Create new shared map
       shared_map = current_user.shared_maps.create!(data: data.to_json)
     end
-    
+
     # Generate the full URL
     share_url = "#{request.base_url}/shared/#{shared_map.token}"
-    
+
     render json: { token: shared_map.token, url: share_url }
   end
 
   # PATCH /update_visited_countries
   def update_visited
     countries_params = params[:countries] || {}
-    
+
     # Remove all existing user_countries for this user
     current_user.user_countries.destroy_all
-    
+
     # Create user_countries for visited countries with their visit counts
     countries_params.each do |country_id, country_data|
       if country_data[:visited] == "1"
@@ -102,7 +102,7 @@ class CountriesController < ApplicationController
         )
       end
     end
-    
+
     respond_to do |format|
       format.html { redirect_to countries_path }
       format.json { render json: { success: true }, status: :ok }
