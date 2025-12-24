@@ -1,10 +1,8 @@
-<p style="color: green"><%= notice %></p>
-
 <% content_for :title, "Countries" %>
 
 <h1>Countries</h1>
 
-<div data-controller="map" data-map-data-value='<%= @countries_data.to_json %>' style="width: 960px; height: 500px; margin-bottom: 2rem;"></div>
+<div data-controller="map" data-map-data-value='<%= @countries_data.to_json %>' style="width: 960px; height: 650px; margin-bottom: 2rem;"></div>
 
 <% if @shared_mode %>
   <div style="background-color: #e3f2fd; border: 1px solid #90caf9; border-radius: 4px; padding: 1rem; margin-bottom: 1.5rem;">
@@ -16,7 +14,10 @@
   </div>
 <% else %>
   <div style="margin-bottom: 1.5rem;">
-    <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">💡 Tip: The share buttons automatically save your changes first.</p>
+    <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
+      💡 Tip: Your changes are automatically saved.
+      <span id="save-status" style="margin-left: 0.5rem; font-weight: 500;"></span>
+    </p>
     <button type="button" id="share-button" style="padding: 0.75rem 1.5rem; background-color: #4caf50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; margin-bottom: 1rem;">
       📤 Share Your Map
     </button>
@@ -65,20 +66,19 @@
     <% end %>
   </div>
 <% else %>
-  <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>
+  <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false }, id: 'countries-form' do %>
     <div id="country-list" style="margin-bottom: 1rem;">
-      <% @countries.each do |country| %>
-        <div class="country-item" data-country-name="<%= country.name.downcase %>" style="padding: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
-          <%= check_box_tag "countries[#{country.id}][visited]", "1", country.visited, id: "country_#{country.id}", class: "country-checkbox", data: { country_id: country.id } %>
-          <%= label_tag "country_#{country.id}", country.name, style: "margin-left: 0.5rem; cursor: pointer; flex: 1; max-width: 250px;" %>
+      <% @countries_data.each do |country| %>
+        <div class="country-item" data-country-name="<%= country[:name].downcase %>" style="padding: 0.25rem; display: flex; align-items: center; gap: 0.5rem;">
+          <%= check_box_tag "countries[#{country[:id]}][visited]", "1", country[:visited], id: "country_#{country[:id]}", class: "country-checkbox", data: { country_id: country[:id] } %>
+          <%= label_tag "country_#{country[:id]}", country[:name], style: "margin-left: 0.5rem; cursor: pointer; flex: 1; max-width: 250px;" %>
           <span style="margin-left: auto; display: flex; align-items: center; gap: 0.5rem;">
-            <label for="country_count_<%= country.id %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
-            <%= number_field_tag "countries[#{country.id}][visit_count]", country.visit_count, min: 1, max: 99, id: "country_count_#{country.id}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country.visited, class: "visit-count-input" %>
+            <label for="country_count_<%= country[:id] %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
+            <%= number_field_tag "countries[#{country[:id]}][visit_count]", country[:visit_count], min: 1, max: 99, id: "country_count_#{country[:id]}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "visit-count-input" %>
           </span>
         </div>
       <% end %>
     </div>
-    <%= submit_tag "Update Visited Countries", style: "padding: 0.75rem 1.5rem; background-color: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
   <% end %>
 <% end %>
 
@@ -102,19 +102,98 @@
       });
     });
     
+    // Auto-save functionality
+    let saveTimeout = null;
+    let isSaving = false;
+    const saveStatus = document.getElementById('save-status');
+    
+    function autoSave() {
+      if (isSaving) return;
+      
+      clearTimeout(saveTimeout);
+      saveTimeout = setTimeout(async () => {
+        isSaving = true;
+        const form = document.getElementById('countries-form');
+        const formData = new FormData(form);
+        
+        // Show saving indicator
+        saveStatus.textContent = '💾 Saving...';
+        saveStatus.style.color = '#666';
+        
+        try {
+          const response = await fetch(form.action, {
+            method: 'PATCH',
+            headers: {
+              'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').content,
+              'Accept': 'application/json'
+            },
+            body: formData
+          });
+          
+          if (response.ok) {
+            saveStatus.textContent = '✓ Saved';
+            saveStatus.style.color = '#4caf50';
+            setTimeout(() => {
+              saveStatus.textContent = '';
+            }, 2000);
+          } else {
+            throw new Error('Save failed');
+          }
+        } catch (error) {
+          console.error('Auto-save error:', error);
+          saveStatus.textContent = '❌ Save failed';
+          saveStatus.style.color = '#f44336';
+          setTimeout(() => {
+            saveStatus.textContent = '';
+          }, 3000);
+        } finally {
+          isSaving = false;
+        }
+      }, 1000); // Wait 1 second after last change before saving
+    }
+    
     // Enable/disable visit count inputs based on checkbox state
     const checkboxes = document.querySelectorAll('.country-checkbox');
     checkboxes.forEach(function(checkbox) {
       const countryId = checkbox.getAttribute('data-country-id');
       const countInput = document.getElementById(`country_count_${countryId}`);
       
+      // Set initial state based on whether checkbox is checked
+      countInput.disabled = !checkbox.checked;
+      
       checkbox.addEventListener('change', function() {
         countInput.disabled = !this.checked;
-        if (this.checked && countInput.value == '1') {
-          // Keep default value of 1 when checked
-        } else if (!this.checked) {
+        if (this.checked) {
+          if (countInput.value === '' || countInput.value === '0') {
+            countInput.value = '1';
+          }
+          // Dispatch event to update map
+          const event = new CustomEvent('country-changed', {
+            detail: { countryId: countryId, visitCount: parseInt(countInput.value) || 1 }
+          });
+          document.dispatchEvent(event);
+        } else {
           countInput.value = '1'; // Reset to 1 when unchecked
+          // Dispatch event to update map (0 = unchecked)
+          const event = new CustomEvent('country-changed', {
+            detail: { countryId: countryId, visitCount: 0 }
+          });
+          document.dispatchEvent(event);
         }
+        // Trigger auto-save
+        autoSave();
+      });
+      
+      // Also update map when visit count changes
+      countInput.addEventListener('change', function() {
+        if (checkbox.checked) {
+          const event = new CustomEvent('country-changed', {
+            detail: { countryId: countryId, visitCount: parseInt(this.value) || 1 }
+          });
+          document.dispatchEvent(event);
+        }
+        // Trigger auto-save
+        autoSave();
       });
     });
     
@@ -140,14 +219,15 @@
       
       try {
         // First, save the countries to the database
-        const form = document.querySelector('form');
+        const form = document.getElementById('countries-form');
         const formData = new FormData(form);
         
         button.textContent = '⏳ Saving changes...';
         const saveResponse = await fetch(form.action, {
-          method: 'POST',
+          method: 'PATCH',
           headers: {
-            'X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]').content
+            'X-CSRF-Token': document.querySelector('meta[name=\"csrf-token\"]').content,
+            'Accept': 'application/json'
           },
           body: formData
         });

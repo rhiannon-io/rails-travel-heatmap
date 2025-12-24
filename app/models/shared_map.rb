@@ -1,4 +1,5 @@
 class SharedMap < ApplicationRecord
+  belongs_to :user
   before_validation :generate_token, on: :create
   
   validates :token, presence: true, uniqueness: true

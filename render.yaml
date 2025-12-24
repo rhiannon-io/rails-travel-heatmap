@@ -1,0 +1,26 @@
+databases:
+  - name: travel-heatmap-db
+    databaseName: travel_heatmap
+    user: travel_heatmap
+    plan: free
+
+services:
+  - type: web
+    name: travel-heatmap
+    runtime: ruby
+    plan: free
+    buildCommand: "./bin/render-build.sh"
+    startCommand: "bundle exec puma -C config/puma.rb"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: travel-heatmap-db
+          property: connectionString
+      - key: RAILS_MASTER_KEY
+        sync: false
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: true
+      - key: RAILS_SERVE_STATIC_FILES
+        value: true

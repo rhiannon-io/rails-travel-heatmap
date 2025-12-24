@@ -24,6 +24,32 @@
   </head>
 
   <body>
-    <%= yield %>
+    <header style="background-color: #0066cc; color: white; padding: 1rem 2rem; margin-bottom: 2rem;">
+      <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
+        <h1 style="margin: 0; font-size: 1.5rem;">
+          <%= link_to "🗺️ Travel Heatmap", root_path, style: "color: white; text-decoration: none;" %>
+        </h1>
+        <nav>
+          <% if user_signed_in? %>
+            <span style="margin-right: 1rem;">👤 <%= current_user.email %></span>
+            <%= button_to "Sign Out", destroy_user_session_path, method: :delete, style: "background-color: white; color: #0066cc; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
+          <% else %>
+            <%= link_to "Sign In", new_user_session_path, style: "color: white; text-decoration: none; margin-right: 1rem;" %>
+            <%= link_to "Sign Up", new_user_registration_path, style: "background-color: white; color: #0066cc; padding: 0.5rem 1rem; border-radius: 4px; text-decoration: none; font-weight: bold;" %>
+          <% end %>
+        </nav>
+      </div>
+    </header>
+    
+    <main style="max-width: 1200px; margin: 0 auto; padding: 0 2rem;">
+      <% if notice.present? %>
+        <p class="notice" style="background-color: #d4edda; color: #155724; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;"><%= notice %></p>
+      <% end %>
+      <% if alert.present? %>
+        <p class="alert" style="background-color: #f8d7da; color: #721c24; padding: 1rem; border-radius: 4px; margin-bottom: 1rem;"><%= alert %></p>
+      <% end %>
+      
+      <%= yield %>
+    </main>
   </body>
 </html>

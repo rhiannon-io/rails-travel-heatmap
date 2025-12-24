@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Quick start script for Travel Heatmap
+
+echo "🗺️  Setting up Travel Heatmap..."
+echo ""
+
+# Check Ruby version
+echo "✓ Checking Ruby version..."
+ruby_version=$(ruby -v)
+echo "  $ruby_version"
+echo ""
+
+# Install dependencies
+echo "📦 Installing dependencies..."
+bundle install
+echo ""
+
+# Setup database
+echo "🗄️  Setting up database..."
+rails db:create
+rails db:migrate
+rails db:seed
+echo ""
+
+# Done
+echo "✅ Setup complete!"
+echo ""
+echo "🚀 To start the server, run:"
+echo "   rails server"
+echo ""
+echo "Then visit: http://localhost:3000"
+echo ""
+echo "📚 For deployment instructions, see DEPLOYMENT.md"

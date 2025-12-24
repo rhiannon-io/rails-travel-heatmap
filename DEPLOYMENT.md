@@ -1,0 +1,281 @@
+# Deployment Guide
+
+This Rails app can be deployed to various platforms. Below are instructions for **Render.com** (recommended - free tier with PostgreSQL) and **Railway.app**.
+
+## Prerequisites
+
+- Git repository pushed to GitHub
+- Account on hosting platform
+
+---
+
+## Option 1: Deploy to Render.com (Recommended)
+
+Render offers a free tier with PostgreSQL database included.
+
+### Step 1: Prepare the Application
+
+1. **Add PostgreSQL gem** to your `Gemfile`:
+
+```ruby
+# Production database
+gem 'pg', group: :production
+```
+
+Run `bundle install`
+
+2. **Update `config/database.yml`** for production:
+
+```yaml
+production:
+  <<: *default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  url: <%= ENV['DATABASE_URL'] %>
+```
+
+3. **Set production secret key**:
+   Render will automatically set `SECRET_KEY_BASE` environment variable.
+
+### Step 2: Create render.yaml
+
+Create a file called `render.yaml` in your project root:
+
+```yaml
+databases:
+  - name: travel-heatmap-db
+    databaseName: travel_heatmap
+    user: travel_heatmap
+    plan: free
+
+services:
+  - type: web
+    name: travel-heatmap
+    runtime: ruby
+    plan: free
+    buildCommand: "./bin/render-build.sh"
+    startCommand: "bundle exec puma -C config/puma.rb"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: travel-heatmap-db
+          property: connectionString
+      - key: RAILS_MASTER_KEY
+        sync: false
+      - key: RAILS_ENV
+        value: production
+```
+
+### Step 3: Create Build Script
+
+Create `bin/render-build.sh`:
+
+```bash
+#!/usr/bin/env bash
+# exit on error
+set -o errexit
+
+bundle install
+bundle exec rails assets:precompile
+bundle exec rails assets:clean
+bundle exec rails db:migrate
+bundle exec rails db:seed
+```
+
+Make it executable:
+```bash
+chmod +x bin/render-build.sh
+```
+
+### Step 4: Deploy on Render
+
+1. Go to [render.com](https://render.com) and sign up/sign in
+2. Click **"New +"** → **"Blueprint"**
+3. Connect your GitHub repository
+4. Render will detect the `render.yaml` file
+5. Set the `RAILS_MASTER_KEY` environment variable:
+   - Copy your `config/master.key` content
+   - Paste it in the Render dashboard environment variables
+6. Click **"Apply"** to start deployment
+
+Your app will be live at `https://your-app-name.onrender.com`
+
+**Note**: Free tier on Render spins down after 15 minutes of inactivity and takes ~30 seconds to wake up.
+
+---
+
+## Option 2: Deploy to Railway.app
+
+Railway offers $5 free credit per month (enough for hobby projects).
+
+### Step 1: Prepare the Application
+
+Same as Render - add `pg` gem and update `database.yml`.
+
+### Step 2: Deploy
+
+1. Go to [railway.app](https://railway.app) and sign up
+2. Click **"New Project"** → **"Deploy from GitHub repo"**
+3. Select your repository
+4. Railway will auto-detect it's a Rails app
+5. Add PostgreSQL:
+   - Click **"+ New"** → **"Database"** → **"Add PostgreSQL"**
+   - Railway automatically sets `DATABASE_URL`
+6. Set environment variables:
+   - `RAILS_MASTER_KEY`: Copy from `config/master.key`
+   - `RAILS_ENV`: `production`
+7. Add a build command in Settings:
+   ```
+   bundle install && rails db:migrate && rails db:seed && rails assets:precompile
+   ```
+
+Your app will be live at `https://your-app.up.railway.app`
+
+---
+
+## Option 3: Deploy to Fly.io
+
+Fly.io offers free tier with global deployment.
+
+### Step 1: Install flyctl
+
+```bash
+curl -L https://fly.io/install.sh | sh
+```
+
+### Step 2: Launch
+
+```bash
+fly launch
+```
+
+Follow the prompts:
+- Choose app name
+- Select region
+- **Say YES** to PostgreSQL
+- **Say NO** to Redis (not needed)
+
+### Step 3: Set Secrets
+
+```bash
+fly secrets set RAILS_MASTER_KEY=$(cat config/master.key)
+```
+
+### Step 4: Deploy
+
+```bash
+fly deploy
+```
+
+Your app will be live at `https://your-app-name.fly.dev`
+
+---
+
+## Option 4: Heroku
+
+### Step 1: Prepare
+
+Add PostgreSQL gem and update `database.yml` (same as above).
+
+### Step 2: Deploy
+
+```bash
+heroku create your-app-name
+heroku addons:create heroku-postgresql:essential-0
+heroku config:set RAILS_MASTER_KEY=$(cat config/master.key)
+git push heroku main
+heroku run rails db:migrate
+heroku run rails db:seed
+```
+
+Your app will be at `https://your-app-name.herokuapp.com`
+
+**Note**: Heroku no longer has a free tier. Minimum cost is $5/month.
+
+---
+
+## Post-Deployment
+
+After deploying, test your app:
+
+1. **Sign up** for a new account
+2. **Select countries** you've visited
+3. **Click "Share Your Map"** to create a shareable link
+4. **Open the shared link** in an incognito/private window to verify
+5. **Update your map** and verify the shared link updates
+
+---
+
+## Environment Variables Checklist
+
+All platforms need these environment variables:
+
+- ✅ `DATABASE_URL` - Automatically set by database service
+- ✅ `RAILS_MASTER_KEY` - Copy from `config/master.key` file
+- ✅ `RAILS_ENV` - Set to `production`
+- ✅ `SECRET_KEY_BASE` - Usually auto-generated by platform
+
+---
+
+## Troubleshooting
+
+### Database connection issues
+- Verify `DATABASE_URL` is set correctly
+- Check database addon is provisioned
+
+### Assets not loading
+- Run `rails assets:precompile` in build script
+- Verify public assets are included in deployment
+
+### Authentication redirect issues
+- Update Devise URL in production config
+- Set correct host in `config/environments/production.rb`:
+  ```ruby
+  config.action_mailer.default_url_options = { host: 'your-app.onrender.com' }
+  ```
+
+### Seed data not loading
+- Ensure `rails db:seed` runs in build script
+- Check logs for errors during seeding
+
+---
+
+## Custom Domain
+
+Most platforms support custom domains:
+
+### Render
+1. Settings → Custom Domain → Add your domain
+2. Add CNAME record: `CNAME @ your-app.onrender.com`
+
+### Railway
+1. Settings → Domains → Add Custom Domain
+2. Add CNAME record pointing to Railway domain
+
+### Fly.io
+```bash
+fly certs add yourdomain.com
+```
+
+---
+
+## Monitoring & Logs
+
+- **Render**: Dashboard → Logs tab
+- **Railway**: Project → Deployments → View Logs
+- **Fly.io**: `fly logs`
+- **Heroku**: `heroku logs --tail`
+
+---
+
+## Cost Comparison
+
+| Platform | Free Tier | Paid Tier | Database | Notes |
+|----------|-----------|-----------|----------|-------|
+| Render | Yes (sleeps after 15min) | $7/mo | PostgreSQL included | Best free option |
+| Railway | $5 credit/month | Pay-as-you-go | PostgreSQL $5/mo | Great for small apps |
+| Fly.io | 3 VMs free | Pay-as-you-go | Free PostgreSQL | Global deployment |
+| Heroku | No | $5/mo minimum | $5/mo | Most expensive |
+
+**Recommendation**: Start with **Render.com free tier** for testing, upgrade to paid if you need better performance.

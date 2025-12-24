@@ -3,6 +3,9 @@ require "active_support/core_ext/integer/time"
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 
+  # Allow requests from GitHub Codespaces proxy
+  config.action_controller.forgery_protection_origin_check = false
+
   # Make code changes take effect immediately without server restart.
   config.enable_reloading = true
 
@@ -77,5 +80,9 @@ Rails.application.configure do
   # config.generators.apply_rubocop_autocorrect_after_generate!
 
   config.hosts << "vigilant-giggle-xp5vxwppjqjcpj57-3002.app.github.dev"
-  config.action_controller.default_url_options = { host: "vigilant-giggle-xp5vxwppjqjcpj57-3002.app.github.dev", protocol: "https" }
+  config.hosts << "vigilant-giggle-xp5vxwppjqjcpj57-3000.app.github.dev"
+  config.action_controller.default_url_options = { host: "vigilant-giggle-xp5vxwppjqjcpj57-3000.app.github.dev", protocol: "https" }
+  
+  # Devise mailer configuration
+  config.action_mailer.default_url_options = { host: 'localhost', port: 3000 }
 end
