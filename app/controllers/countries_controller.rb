@@ -4,7 +4,7 @@ class CountriesController < ApplicationController
 
   # GET /countries or /countries.json
   def index
-    @countries = Country.all
+    @countries = Country.order(:name)
     @countries_data = @countries.map { |c| { name: c.name, visited: c.visited } }
   end
 

@@ -4,15 +4,19 @@
 
 <h1>Countries</h1>
 
-<div data-controller="map" data-map-data-value='<%= @countries_data.to_json %>' style="width: 960px; height: 500px;"></div>
+<div data-controller="map" data-map-data-value='<%= @countries_data.to_json %>' style="width: 960px; height: 500px; margin-bottom: 2rem;"></div>
 
 <h2>Select Visited Countries</h2>
+<p style="color: #666; margin-bottom: 1rem;">Check the countries you've visited and click "Update Visited Countries" to save.</p>
+
 <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false } do %>
-  <% @countries.each do |country| %>
-    <div>
-      <%= check_box_tag "country_ids[]", country.id, country.visited %>
-      <%= label_tag "country_ids_#{country.id}", country.name %>
-    </div>
-  <% end %>
-  <%= submit_tag "Update Visited Countries" %>
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.5rem; margin-bottom: 1rem;">
+    <% @countries.each do |country| %>
+      <div style="padding: 0.25rem;">
+        <%= check_box_tag "country_ids[]", country.id, country.visited, id: "country_#{country.id}" %>
+        <%= label_tag "country_#{country.id}", country.name, style: "margin-left: 0.5rem; cursor: pointer;" %>
+      </div>
+    <% end %>
+  </div>
+  <%= submit_tag "Update Visited Countries", style: "padding: 0.75rem 1.5rem; background-color: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
 <% end %>

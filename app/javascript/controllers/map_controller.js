@@ -30,15 +30,18 @@ export default class extends Controller {
 
     const color = d3.scaleOrdinal(d3.schemeCategory10)
 
-    d3.json("/countries-110m.json").then(world => {
+    d3.json("/ne_countries_admin_0.geojson").then(geojson => {
       svg.append("g")
         .selectAll("path")
-        .data(topojson.feature(world, world.objects.countries).features)
+        .data(geojson.features)
         .enter().append("path")
         .attr("d", path)
         .attr("fill", d => {
-          const country = data.find(c => c.name === d.properties.name)
-
+          // Try to match by ISO code or name
+          let country = data.find(c => c.iso_code && (c.iso_code === d.properties["ISO3166-1-Alpha-3"] || c.iso_code === d.properties["ISO3166-1-Alpha-2"]))
+          if (!country) {
+            country = data.find(c => c.name === d.properties.name)
+          }
           return country && country.visited ? "steelblue" : "#ccc"
         })
         .attr("stroke", "#fff")
