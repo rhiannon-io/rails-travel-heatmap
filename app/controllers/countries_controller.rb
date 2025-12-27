@@ -1,7 +1,4 @@
 class CountriesController < ApplicationController
-  # Allow all browsers for og_image (for social media crawlers)
-  allow_browser versions: { chrome: 1, safari: 1, firefox: 1, opera: 1, ie: false }, only: :og_image
-  
   before_action :authenticate_user!, except: [ :shared, :og_image ]
   before_action :set_country, only: %i[ show edit update destroy ]
   skip_before_action :verify_authenticity_token, only: [ :update_visited, :create_shared ]
@@ -108,68 +105,63 @@ class CountriesController < ApplicationController
         render json: { error: "rsvg-convert not found", which_output: rsvg_path }, status: :internal_server_error
         return
       end
-      # Fallback to a redirect to a placeholder or the SVG itself
       redirect_to "/default_og.svg"
       return
     end
 
-    begin
-      # Generate simple SVG (no map, just stats - for fast rendering)
-      svg_data = render_to_string(
-        template: "countries/og_image_simple",
-        layout: false,
-        locals: { countries_data: @countries_data, shared_map: @shared_map }
-      )
+    # Generate simple SVG (no map, just stats - for fast rendering)
+    svg_data = render_to_string(
+      template: "countries/og_image_simple",
+      layout: false,
+      locals: { countries_data: @countries_data, shared_map: @shared_map }
+    )
 
-      if debug_mode
-        # Try the conversion to see if it works
-        begin
-          test_png, test_stderr, test_status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
-          render json: { 
-            svg_length: svg_data.length, 
-            svg_preview: svg_data[0..500],
-            rsvg_path: rsvg_path.strip,
-            countries_count: @countries_data.count,
-            visited_count: @countries_data.count { |c| c[:visited] },
-            conversion_success: test_status.success?,
-            conversion_stderr: test_stderr,
-            png_length: test_png.bytesize
-          }
-        rescue => conv_e
-          render json: { 
-            svg_length: svg_data.length, 
-            svg_preview: svg_data[0..500],
-            rsvg_path: rsvg_path.strip,
-            countries_count: @countries_data.count,
-            visited_count: @countries_data.count { |c| c[:visited] },
-            conversion_error: conv_e.class.to_s,
-            conversion_message: conv_e.message
-          }
-        end
-        return
+    if debug_mode
+      # Try the conversion to see if it works
+      begin
+        test_png, test_stderr, test_status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
+        render json: { 
+          svg_length: svg_data.length, 
+          svg_preview: svg_data[0..500],
+          rsvg_path: rsvg_path.strip,
+          countries_count: @countries_data.count,
+          visited_count: @countries_data.count { |c| c[:visited] },
+          conversion_success: test_status.success?,
+          conversion_stderr: test_stderr,
+          png_length: test_png.bytesize
+        }
+      rescue => conv_e
+        render json: { 
+          svg_length: svg_data.length, 
+          svg_preview: svg_data[0..500],
+          rsvg_path: rsvg_path.strip,
+          countries_count: @countries_data.count,
+          visited_count: @countries_data.count { |c| c[:visited] },
+          conversion_error: conv_e.class.to_s,
+          conversion_message: conv_e.message
+        }
       end
-      
-      png_data, stderr, status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
+      return
+    end
+    
+    png_data, stderr, status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
 
-      Rails.logger.info "rsvg-convert status: #{status.success?}, png_size: #{png_data.bytesize}, stderr: #{stderr}"
+    Rails.logger.info "rsvg-convert status: #{status.success?}, png_size: #{png_data.bytesize}, stderr: #{stderr}"
 
-      if status.success? && png_data.present? && png_data.bytesize > 100
-        Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
-        response.headers["Content-Type"] = "image/png"
-        response.headers["Content-Length"] = png_data.bytesize.to_s
-        send_data png_data, type: "image/png", disposition: "inline", status: :ok
-      else
-        Rails.logger.error "rsvg-convert failed: status=#{status.success?}, png_size=#{png_data.bytesize}, stderr=#{stderr}"
-        redirect_to "/default_og.svg", allow_other_host: true
-      end
-    rescue => e
-      Rails.logger.error "OG image generation error: #{e.class} - #{e.message}"
-      Rails.logger.error e.backtrace.first(5).join("\n")
-      if debug_mode
-        render json: { error: e.class.to_s, message: e.message, backtrace: e.backtrace.first(5) }, status: :internal_server_error
-      else
-        redirect_to "/default_og.svg"
-      end
+    if status.success? && png_data.present? && png_data.bytesize > 100
+      Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
+      send_data png_data, type: "image/png", disposition: "inline"
+    else
+      Rails.logger.error "rsvg-convert failed: status=#{status.success?}, png_size=#{png_data.bytesize}, stderr=#{stderr}"
+      redirect_to "/default_og.svg"
+    end
+  rescue => e
+    Rails.logger.error "OG image generation error: #{e.class} - #{e.message}"
+    Rails.logger.error e.backtrace.first(5).join("\n")
+    if params[:debug] == "1"
+      render json: { error: e.class.to_s, message: e.message, backtrace: e.backtrace.first(5) }, status: :internal_server_error
+    else
+      redirect_to "/default_og.svg"
     end
   end
 
