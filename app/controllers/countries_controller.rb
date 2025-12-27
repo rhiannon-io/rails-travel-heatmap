@@ -101,13 +101,20 @@ class CountriesController < ApplicationController
     )
 
     require "open3"
-    png_data, status = Open3.capture2("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
+    
+    begin
+      png_data, stderr, status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
 
-    if status.success?
-      Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
-      send_data png_data, type: "image/png", disposition: "inline"
-    else
-      Rails.logger.error "rsvg-convert failed"
+      if status.success? && png_data.present?
+        Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
+        send_data png_data, type: "image/png", disposition: "inline"
+      else
+        Rails.logger.error "rsvg-convert failed: #{stderr}"
+        head :internal_server_error
+      end
+    rescue => e
+      Rails.logger.error "OG image generation error: #{e.class} - #{e.message}"
+      Rails.logger.error e.backtrace.first(5).join("\n")
       head :internal_server_error
     end
   end
