@@ -17,7 +17,8 @@ class CountriesController < ApplicationController
         name: c.name,
         iso_code: c.iso_code,
         visited: user_country.present?,
-        visit_count: user_country&.visit_count || 1
+        visit_count: user_country&.visit_count || 1,
+        home_country: user_country&.home_country || false
       }
     end
 
@@ -37,15 +38,21 @@ class CountriesController < ApplicationController
     @countries = Country.order(:name)
     @shared_mode = true
 
-    # Parse the stored data (format: {"USA":5,"GBR":3})
+    # Parse the stored data (format: {"USA":{"visits":5,"home":false}})
     shared_data = JSON.parse(@shared_map.data)
 
-    # Map shared data to countries, preserving visit counts
+    # Map shared data to countries, preserving visit counts and home country status
     @countries_data = @countries.map do |c|
       if shared_data.key?(c.iso_code)
-        { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: shared_data[c.iso_code] }
+        country_info = shared_data[c.iso_code]
+        # Handle both old format (just number) and new format (hash with visits and home)
+        if country_info.is_a?(Hash)
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info["visits"] || country_info["visit_count"] || 1, home_country: country_info["home"] || false }
+        else
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info, home_country: false }
+        end
       else
-        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1 }
+        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1, home_country: false }
       end
     end
 
@@ -57,10 +64,10 @@ class CountriesController < ApplicationController
     # Get current user's visited countries through the join table
     user_countries = current_user.user_countries.includes(:country)
 
-    # Build data hash with ISO codes and visit counts
+    # Build data hash with ISO codes, visit counts, and home country status
     data = {}
     user_countries.each do |uc|
-      data[uc.country.iso_code] = uc.visit_count
+      data[uc.country.iso_code] = { visits: uc.visit_count, home: uc.home_country }
     end
 
     # Check if updating an existing shared map
@@ -96,9 +103,11 @@ class CountriesController < ApplicationController
       if country_data[:visited] == "1"
         visit_count = country_data[:visit_count].to_i
         visit_count = 1 if visit_count < 1 # Ensure at least 1
+        home_country = country_data[:home_country] == "1"
         current_user.user_countries.create!(
           country_id: country_id,
-          visit_count: visit_count
+          visit_count: visit_count,
+          home_country: home_country
         )
       end
     end

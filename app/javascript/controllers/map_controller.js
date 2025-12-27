@@ -18,9 +18,12 @@ export default class extends Controller {
   }
   
   handleCountryChange(event) {
-    const { countryId, visitCount } = event.detail
+    const { countryId, visitCount, homeCountry } = event.detail
     const countryData = this.dataValue.find(c => c.id === parseInt(countryId))
     if (!countryData) return
+    
+    // Update the data
+    countryData.home_country = homeCountry || false
     
     // Find and update the corresponding path element
     this.updateCountryOnMap(countryData, visitCount)
@@ -39,14 +42,20 @@ export default class extends Controller {
         let color = "#E8E8E8" // Not visited
         
         if (visitCount > 0) {
-          if (visitCount === 1) color = "#FFEB3B"
-          else if (visitCount === 2) color = "#FFC107"
-          else if (visitCount === 3) color = "#FF9800"
-          else if (visitCount === 4) color = "#FF5722"
-          else if (visitCount === 5) color = "#F44336"
-          else if (visitCount >= 6 && visitCount < 10) color = "#E91E63"
-          else if (visitCount >= 10 && visitCount < 20) color = "#9C27B0"
-          else if (visitCount >= 20) color = "#4A148C"
+          // Home country gets a distinct green color
+          if (countryData.home_country) {
+            color = "#4caf50"
+          } else {
+            // Regular visit colors
+            if (visitCount === 1) color = "#FFEB3B"
+            else if (visitCount === 2) color = "#FFC107"
+            else if (visitCount === 3) color = "#FF9800"
+            else if (visitCount === 4) color = "#FF5722"
+            else if (visitCount === 5) color = "#F44336"
+            else if (visitCount >= 6 && visitCount < 10) color = "#E91E63"
+            else if (visitCount >= 10 && visitCount < 20) color = "#9C27B0"
+            else if (visitCount >= 20) color = "#4A148C"
+          }
         }
         
         d3.select(this).attr("fill", color)
@@ -115,6 +124,10 @@ export default class extends Controller {
           }
           
           if (country && country.visited) {
+            // Home country gets a distinct green color
+            if (country.home_country) {
+              return "#4caf50"
+            }
             // Heatmap colors: yellow -> orange -> red -> dark red based on visit count
             const visitCount = country.visit_count || 1
             if (visitCount === 1) return "#FFEB3B"
@@ -300,7 +313,7 @@ export default class extends Controller {
   addLegend(svg, width, height) {
     const legend = svg.append("g")
       .attr("class", "legend")
-      .attr("transform", `translate(${width - 150}, ${height - 250})`)
+      .attr("transform", `translate(${width - 150}, ${height - 270})`)
     
     // Add title with instructions
     legend.append("text")
@@ -327,6 +340,7 @@ export default class extends Controller {
     
     const legendData = [
       { label: "Not visited", color: "#E8E8E8" },
+      { label: "🏠 Home country", color: "#4caf50" },
       { label: "1 visit", color: "#FFEB3B" },
       { label: "2 visits", color: "#FFC107" },
       { label: "3 visits", color: "#FF9800" },
@@ -360,6 +374,7 @@ export default class extends Controller {
   toggleCountry(countryId, pathElement) {
     const checkbox = document.getElementById(`country_${countryId}`)
     const countInput = document.getElementById(`country_count_${countryId}`)
+    const homeCheckbox = document.getElementById(`country_home_${countryId}`)
     
     if (checkbox && countInput) {
       let newCount
@@ -367,6 +382,7 @@ export default class extends Controller {
         checkbox.checked = true
         countInput.value = 1
         countInput.disabled = false
+        if (homeCheckbox) homeCheckbox.disabled = false
         newCount = 1
       } else {
         let currentCount = parseInt(countInput.value) || 1
@@ -385,50 +401,58 @@ export default class extends Controller {
       
       // Dispatch event to sync
       const event = new CustomEvent('country-changed', {
-        detail: { countryId: countryId, visitCount: newCount }
+        detail: { countryId: countryId, visitCount: newCount, homeCountry: homeCheckbox ? homeCheckbox.checked : false }
       })
       document.dispatchEvent(event)
       
       // Trigger change event on input to trigger auto-save
       countInput.dispatchEvent(new Event('change', { bubbles: true }))
       
-      this.updateMapColor(pathElement, newCount)
+      this.updateMapColor(pathElement, newCount, homeCheckbox ? homeCheckbox.checked : false)
     }
   }
   
   uncheckCountry(countryId, pathElement) {
     const checkbox = document.getElementById(`country_${countryId}`)
     const countInput = document.getElementById(`country_count_${countryId}`)
+    const homeCheckbox = document.getElementById(`country_home_${countryId}`)
     
     if (checkbox && countInput) {
       checkbox.checked = false
       countInput.value = 1
       countInput.disabled = true
+      if (homeCheckbox) {
+        homeCheckbox.checked = false
+        homeCheckbox.disabled = true
+      }
       
       // Update the internal data array for tooltip
       const countryData = this.dataValue.find(c => c.id === parseInt(countryId))
       if (countryData) {
         countryData.visited = false
         countryData.visit_count = 1
+        countryData.home_country = false
       }
       
       // Dispatch event to sync
       const event = new CustomEvent('country-changed', {
-        detail: { countryId: countryId, visitCount: 0 }
+        detail: { countryId: countryId, visitCount: 0, homeCountry: false }
       })
       document.dispatchEvent(event)
       
       // Trigger change event on checkbox to trigger auto-save
       checkbox.dispatchEvent(new Event('change', { bubbles: true }))
       
-      this.updateMapColor(pathElement, 0)
+      this.updateMapColor(pathElement, 0, false)
     }
   }
   
-  updateMapColor(pathElement, visitCount) {
+  updateMapColor(pathElement, visitCount, homeCountry = false) {
     let color = "#E8E8E8"
     
-    if (visitCount === 1) color = "#FFEB3B"
+    if (homeCountry) {
+      color = "#4caf50"
+    } else if (visitCount === 1) color = "#FFEB3B"
     else if (visitCount === 2) color = "#FFC107"
     else if (visitCount === 3) color = "#FF9800"
     else if (visitCount === 4) color = "#FF5722"
