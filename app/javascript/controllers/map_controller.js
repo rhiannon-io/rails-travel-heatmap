@@ -72,8 +72,10 @@ export default class extends Controller {
 
     const svg = d3.select(this.element)
       .append("svg")
-      .attr("width", width)
-      .attr("height", height)
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .attr("preserveAspectRatio", "xMidYMid meet")
+      .style("width", "100%")
+      .style("height", "100%")
 
     // Create tooltip
     const tooltip = d3.select(this.element)

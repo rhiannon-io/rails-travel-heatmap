@@ -25,13 +25,13 @@
 
   <body>
     <header style="background-color: #0066cc; color: white; padding: 1rem 2rem; margin-bottom: 2rem;">
-      <div style="max-width: 1200px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center;">
-        <h1 style="margin: 0; font-size: 1.5rem;">
+      <div class="header-container">
+        <h1 class="header-title" style="margin: 0; font-size: 1.5rem;">
           <%= link_to "🗺️ Travel Heatmap", root_path, style: "color: white; text-decoration: none;" %>
         </h1>
-        <nav>
+        <nav class="header-nav">
           <% if user_signed_in? %>
-            <span style="margin-right: 1rem;">👤 <%= current_user.email %></span>
+            <span class="header-email" style="margin-right: 1rem;">👤 <%= current_user.email %></span>
             <%= button_to "Sign Out", destroy_user_session_path, method: :delete, style: "background-color: white; color: #0066cc; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-size: 1rem;" %>
           <% else %>
             <%= link_to "Sign In", new_user_session_path, style: "color: white; text-decoration: none; margin-right: 1rem;" %>

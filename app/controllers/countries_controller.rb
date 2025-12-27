@@ -70,19 +70,22 @@ class CountriesController < ApplicationController
       data[uc.country.iso_code] = { visits: uc.visit_count, home: uc.home_country }
     end
 
+    # Get owner name from params
+    owner_name = params[:owner_name]
+
     # Check if updating an existing shared map
     token = params[:token]
     if token.present?
       shared_map = current_user.shared_maps.find_by(token: token)
       if shared_map
-        shared_map.update!(data: data.to_json)
+        shared_map.update!(data: data.to_json, owner_name: owner_name)
       else
         # Token not found, create new one
-        shared_map = current_user.shared_maps.create!(data: data.to_json)
+        shared_map = current_user.shared_maps.create!(data: data.to_json, owner_name: owner_name)
       end
     else
       # Create new shared map
-      shared_map = current_user.shared_maps.create!(data: data.to_json)
+      shared_map = current_user.shared_maps.create!(data: data.to_json, owner_name: owner_name)
     end
 
     # Generate the full URL

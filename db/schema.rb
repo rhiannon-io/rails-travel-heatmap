@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_27_014724) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_27_021848) do
   create_table "countries", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "iso_code"
@@ -32,6 +32,7 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_014724) do
   create_table "shared_maps", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.text "data", null: false
+    t.string "owner_name"
     t.string "token", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id"
