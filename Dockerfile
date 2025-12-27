@@ -21,6 +21,8 @@ RUN apt-get update -qq && \
       libjemalloc2 \
       libvips \
       sqlite3 \
+      # SVG to PNG conversion
+      librsvg2-bin \
       # Chrome/Puppeteer dependencies
       libatk1.0-0 \
       libatk-bridge2.0-0 \

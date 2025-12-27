@@ -100,7 +100,7 @@ class CountriesController < ApplicationController
       locals: { countries_data: @countries_data, shared_map: @shared_map }
     )
 
-    # Try to generate PNG using Grover, fall back to serving error message
+    # Try to generate PNG using Grover, fall back to rsvg-convert
     begin
       grover = Grover.new(html, format: "png", viewport: { width: 1200, height: 630 })
       png_data = grover.to_png
@@ -111,13 +111,30 @@ class CountriesController < ApplicationController
       send_data png_data, type: "image/png", disposition: "inline"
     rescue => e
       Rails.logger.error "Grover error: #{e.message}"
-      # Fall back to serving the SVG directly
+
+      # Fall back to rsvg-convert for SVG to PNG conversion
       svg_data = render_to_string(
         template: "countries/og_image_svg",
         layout: false,
         locals: { countries_data: @countries_data, shared_map: @shared_map }
       )
-      send_data svg_data, type: "image/svg+xml", disposition: "inline"
+
+      # Try rsvg-convert if available
+      begin
+        require "open3"
+        png_data, status = Open3.capture2("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
+
+        if status.success?
+          Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
+          send_data png_data, type: "image/png", disposition: "inline"
+        else
+          Rails.logger.error "rsvg-convert failed"
+          send_data svg_data, type: "image/svg+xml", disposition: "inline"
+        end
+      rescue => e2
+        Rails.logger.error "rsvg-convert error: #{e2.message}"
+        send_data svg_data, type: "image/svg+xml", disposition: "inline"
+      end
     end
   end
 
