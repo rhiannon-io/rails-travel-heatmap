@@ -7,10 +7,8 @@ databases:
 services:
   - type: web
     name: travel-heatmap
-    runtime: ruby
+    runtime: docker
     plan: free
-    buildCommand: "./bin/render-build.sh"
-    startCommand: "bundle exec puma -C config/puma.rb"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -24,3 +22,5 @@ services:
         value: true
       - key: RAILS_SERVE_STATIC_FILES
         value: true
+      - key: PUPPETEER_CACHE_DIR
+        value: /home/rails/.cache/puppeteer
