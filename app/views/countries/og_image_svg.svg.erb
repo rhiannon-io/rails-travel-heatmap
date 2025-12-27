@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#16213e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  
+  <%
+    # Calculate stats
+    visited_countries = countries_data.select { |c| c[:visited] }
+    total_visits = visited_countries.sum { |c| c[:visit_count] }
+    home_country = visited_countries.find { |c| c[:home_country] }
+    
+    # Build a lookup for coloring
+    visited_iso_codes = {}
+    visited_countries.each do |c|
+      visited_iso_codes[c[:iso_code]] = { visits: c[:visit_count], home: c[:home_country] }
+    end
+    
+    # Load and parse GeoJSON
+    geojson_path = Rails.root.join("public", "ne_countries_admin_0.geojson")
+    geojson = JSON.parse(File.read(geojson_path))
+    
+    # Map dimensions within the SVG
+    map_width = 1120
+    map_height = 400
+    map_x_offset = 40
+    map_y_offset = 100
+  %>
+  
+  <!-- Header -->
+  <text x="40" y="55" fill="white" font-family="Arial, sans-serif" font-size="42" font-weight="bold">
+    <% if shared_map.owner_name.present? %>
+      <tspan fill="#4caf50"><%= shared_map.owner_name %>'s</tspan><tspan> Travel Map</tspan>
+    <% else %>
+      Travel Heatmap
+    <% end %>
+  </text>
+  
+  <!-- Stats -->
+  <text x="1160" y="40" fill="white" font-family="Arial, sans-serif" font-size="20" text-anchor="end">
+    <tspan fill="#4caf50" font-weight="bold" font-size="28"><%= visited_countries.count %></tspan>
+    <tspan> countries</tspan>
+  </text>
+  <text x="1160" y="70" fill="white" font-family="Arial, sans-serif" font-size="20" text-anchor="end">
+    <tspan fill="#4caf50" font-weight="bold" font-size="28"><%= total_visits %></tspan>
+    <tspan> trips</tspan>
+  </text>
+  
+  <!-- Map container background -->
+  <rect x="<%= map_x_offset %>" y="<%= map_y_offset %>" width="<%= map_width %>" height="<%= map_height %>" fill="#1a1a2e"/>
+  
+  <!-- Map paths -->
+  <g transform="translate(<%= map_x_offset %>, <%= map_y_offset %>)">
+    <% geojson["features"].each do |feature| %>
+      <%
+        props = feature["properties"] || {}
+        iso3 = props["ISO3166-1-Alpha-3"] || props["ISO_A3"]
+        iso2 = props["ISO3166-1-Alpha-2"] || props["ISO_A2"]
+        
+        # Check if visited
+        visit_info = visited_iso_codes[iso3] || visited_iso_codes[iso2]
+        
+        if visit_info
+          visits = visit_info[:visits]
+          is_home = visit_info[:home]
+          if is_home
+            fill_color = "#4caf50"
+          else
+            fill_color = case visits
+              when 1 then "#FFEB3B"
+              when 2 then "#FFC107"
+              when 3 then "#FF9800"
+              when 4 then "#FF5722"
+              when 5 then "#F44336"
+              when 6..9 then "#E91E63"
+              when 10..19 then "#9C27B0"
+              else "#4A148C"
+            end
+          end
+        else
+          fill_color = "#2d3748"
+        end
+        
+        geometry = feature["geometry"]
+        paths = []
+        
+        # Process geometry to paths
+        if geometry
+          coords_arrays = case geometry["type"]
+            when "Polygon" then [geometry["coordinates"]]
+            when "MultiPolygon" then geometry["coordinates"]
+            else []
+          end
+          
+          coords_arrays.each do |polygon|
+            next unless polygon.is_a?(Array) && polygon.any?
+            ring = polygon[0] # outer ring
+            next unless ring.is_a?(Array) && ring.any?
+            
+            path_parts = []
+            ring.each_with_index do |point, idx|
+              next unless point.is_a?(Array) && point[0].is_a?(Numeric)
+              lon, lat = point[0], point[1]
+              x = (lon + 180) * (map_width / 360.0)
+              y = (90 - lat) * (map_height / 180.0)
+              cmd = idx == 0 ? "M" : "L"
+              path_parts << "#{cmd}#{x.round(1)},#{y.round(1)}"
+            end
+            paths << path_parts.join(" ") + "Z" if path_parts.any?
+          end
+        end
+      %>
+      <% paths.each do |path_d| %>
+        <path d="<%= path_d %>" fill="<%= fill_color %>" stroke="#1a1a2e" stroke-width="0.5"/>
+      <% end %>
+    <% end %>
+  </g>
+  
+  <!-- Footer background -->
+  <rect x="0" y="530" width="1200" height="100" fill="rgba(0,0,0,0.3)"/>
+  
+  <!-- Footer text -->
+  <text x="40" y="575" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">
+    🗺️ Travel Heatmap
+  </text>
+  <text x="1160" y="575" fill="#aaa" font-family="Arial, sans-serif" font-size="18" text-anchor="end">
+    <% if home_country %>
+      🏠 <%= home_country[:name] %> · 
+    <% end %>
+    Create your own map →
+  </text>
+</svg>
