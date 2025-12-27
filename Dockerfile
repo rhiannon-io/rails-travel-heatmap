@@ -14,39 +14,15 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
 # Rails app lives here
 WORKDIR /rails
 
-# Install base packages including Chrome dependencies for Puppeteer
+# Install base packages
 RUN apt-get update -qq && \
     apt-get install --no-install-recommends -y \
       curl \
       libjemalloc2 \
       libvips \
       sqlite3 \
-      # SVG to PNG conversion
-      librsvg2-bin \
-      # Chrome/Puppeteer dependencies
-      libatk1.0-0 \
-      libatk-bridge2.0-0 \
-      libcups2 \
-      libdrm2 \
-      libxkbcommon0 \
-      libxcomposite1 \
-      libxdamage1 \
-      libxfixes3 \
-      libxrandr2 \
-      libgbm1 \
-      libasound2 \
-      libpango-1.0-0 \
-      libcairo2 \
-      libnss3 \
-      libnspr4 \
-      libxss1 \
-      fonts-liberation \
-      wget \
-      ca-certificates \
-      gnupg && \
-    # Install Node.js for Puppeteer
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install --no-install-recommends -y nodejs && \
+      # SVG to PNG conversion for OG images
+      librsvg2-bin && \
     ln -s /usr/lib/$(uname -m)-linux-gnu/libjemalloc.so.2 /usr/local/lib/libjemalloc.so && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
@@ -76,10 +52,6 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
-# Install Puppeteer and Chrome
-RUN npm install puppeteer && \
-    npx puppeteer browsers install chrome
-
 # Precompile bootsnap code for faster boot times.
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
@@ -100,12 +72,6 @@ RUN groupadd --system --gid 1000 rails && \
 # Copy built artifacts: gems, application
 COPY --chown=rails:rails --from=build "${BUNDLE_PATH}" "${BUNDLE_PATH}"
 COPY --chown=rails:rails --from=build /rails /rails
-
-# Copy Puppeteer cache (Chrome browser) from build stage
-COPY --chown=rails:rails --from=build /root/.cache/puppeteer /home/rails/.cache/puppeteer
-
-# Set Puppeteer cache directory
-ENV PUPPETEER_CACHE_DIR=/home/rails/.cache/puppeteer
 
 USER 1000:1000
 

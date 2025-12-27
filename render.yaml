@@ -22,5 +22,3 @@ services:
         value: true
       - key: RAILS_SERVE_STATIC_FILES
         value: true
-      - key: PUPPETEER_CACHE_DIR
-        value: /home/rails/.cache/puppeteer
