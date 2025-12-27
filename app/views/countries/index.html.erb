@@ -1,6 +1,24 @@
 <% if @shared_mode && @shared_map&.owner_name.present? %>
   <% content_for :title, "#{@shared_map.owner_name}'s Travel Heatmap" %>
+  <% content_for :og_title, "#{@shared_map.owner_name}'s Travel Heatmap" %>
+  <%
+    visited_count = @countries_data.count { |c| c[:visited] }
+    home = @countries_data.find { |c| c[:home_country] }
+  %>
+  <% content_for :og_description, "#{@shared_map.owner_name} has visited #{visited_count} countries#{home ? " and calls #{home[:name]} home" : ""}. Create your own travel heatmap!" %>
+  <% content_for :og_image, shared_og_image_url(@shared_map.token) %>
+  <% content_for :og_url, shared_url(@shared_map.token) %>
   <h1><%= @shared_map.owner_name %>'s Travel Heatmap</h1>
+<% elsif @shared_mode && @shared_map %>
+  <% content_for :title, "Shared Travel Heatmap" %>
+  <% content_for :og_title, "Shared Travel Heatmap" %>
+  <%
+    visited_count = @countries_data.count { |c| c[:visited] }
+  %>
+  <% content_for :og_description, "Check out this travel heatmap showing #{visited_count} countries visited. Create your own!" %>
+  <% content_for :og_image, shared_og_image_url(@shared_map.token) %>
+  <% content_for :og_url, shared_url(@shared_map.token) %>
+  <h1>Travel Heatmap</h1>
 <% else %>
   <% content_for :title, "Countries" %>
   <h1>Countries</h1>

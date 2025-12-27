@@ -1,5 +1,5 @@
 class CountriesController < ApplicationController
-  before_action :authenticate_user!, except: [ :shared ]
+  before_action :authenticate_user!, except: [ :shared, :og_image ]
   before_action :set_country, only: %i[ show edit update destroy ]
   skip_before_action :verify_authenticity_token, only: [ :update_visited, :create_shared ]
 
@@ -57,6 +57,57 @@ class CountriesController < ApplicationController
     end
 
     render :index
+  end
+
+  # GET /shared/:token/og_image.png
+  def og_image
+    @shared_map = SharedMap.find_by(token: params[:token])
+
+    if @shared_map.nil?
+      head :not_found
+      return
+    end
+
+    # Check if we have a cached image
+    cache_key = "og_image_#{@shared_map.token}_#{@shared_map.updated_at.to_i}"
+    cached_image = Rails.cache.read(cache_key)
+
+    if cached_image
+      send_data cached_image, type: "image/png", disposition: "inline"
+      return
+    end
+
+    @countries = Country.order(:name)
+    shared_data = JSON.parse(@shared_map.data)
+
+    @countries_data = @countries.map do |c|
+      if shared_data.key?(c.iso_code)
+        country_info = shared_data[c.iso_code]
+        if country_info.is_a?(Hash)
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info["visits"] || 1, home_country: country_info["home"] || false }
+        else
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info, home_country: false }
+        end
+      else
+        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1, home_country: false }
+      end
+    end
+
+    # Render the OG image template to HTML
+    html = render_to_string(
+      template: "countries/og_image",
+      layout: "og_image",
+      locals: { countries_data: @countries_data, shared_map: @shared_map }
+    )
+
+    # Generate PNG using Grover
+    grover = Grover.new(html, format: "png", viewport: { width: 1200, height: 630 })
+    png_data = grover.to_png
+
+    # Cache for 1 hour
+    Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
+
+    send_data png_data, type: "image/png", disposition: "inline"
   end
 
   # POST /countries/create_shared
