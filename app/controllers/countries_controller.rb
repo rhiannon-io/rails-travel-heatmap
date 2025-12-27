@@ -148,12 +148,16 @@ class CountriesController < ApplicationController
       
       png_data, stderr, status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
 
-      if status.success? && png_data.present?
+      Rails.logger.info "rsvg-convert status: #{status.success?}, png_size: #{png_data.bytesize}, stderr: #{stderr}"
+
+      if status.success? && png_data.present? && png_data.bytesize > 100
         Rails.cache.write(cache_key, png_data, expires_in: 1.hour)
-        send_data png_data, type: "image/png", disposition: "inline"
+        response.headers["Content-Type"] = "image/png"
+        response.headers["Content-Length"] = png_data.bytesize.to_s
+        send_data png_data, type: "image/png", disposition: "inline", status: :ok
       else
-        Rails.logger.error "rsvg-convert failed: #{stderr}"
-        redirect_to "/default_og.svg"
+        Rails.logger.error "rsvg-convert failed: status=#{status.success?}, png_size=#{png_data.bytesize}, stderr=#{stderr}"
+        redirect_to "/default_og.svg", allow_other_host: true
       end
     rescue => e
       Rails.logger.error "OG image generation error: #{e.class} - #{e.message}"
