@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a2e"/>
+      <stop offset="50%" style="stop-color:#16213e"/>
+      <stop offset="100%" style="stop-color:#0f3460"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4caf50"/>
+      <stop offset="100%" style="stop-color:#81c784"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  
+  <%
+    # Calculate stats
+    visited_countries = countries_data.select { |c| c[:visited] }
+    total_visits = visited_countries.sum { |c| c[:visit_count] }
+    home_country = visited_countries.find { |c| c[:home_country] }
+    owner_name = shared_map.owner_name.present? ? shared_map.owner_name : "Someone"
+  %>
+  
+  <!-- Decorative world outline (simple) -->
+  <g transform="translate(600, 315)" opacity="0.1">
+    <circle r="180" fill="none" stroke="white" stroke-width="2"/>
+    <ellipse rx="180" ry="70" fill="none" stroke="white" stroke-width="1"/>
+    <line x1="0" y1="-180" x2="0" y2="180" stroke="white" stroke-width="1"/>
+    <ellipse rx="70" ry="180" fill="none" stroke="white" stroke-width="1"/>
+    <ellipse rx="130" ry="180" fill="none" stroke="white" stroke-width="1"/>
+    <ellipse rx="180" ry="130" fill="none" stroke="white" stroke-width="1"/>
+  </g>
+  
+  <!-- Main Title -->
+  <text x="600" y="180" fill="white" font-family="Arial, sans-serif" font-size="56" font-weight="bold" text-anchor="middle">
+    <tspan fill="#4caf50"><%= owner_name %>'s</tspan>
+  </text>
+  <text x="600" y="250" fill="white" font-family="Arial, sans-serif" font-size="48" font-weight="bold" text-anchor="middle">
+    Travel Heatmap
+  </text>
+  
+  <!-- Stats boxes -->
+  <g transform="translate(250, 340)">
+    <rect x="0" y="0" width="200" height="120" rx="10" fill="rgba(76,175,80,0.2)" stroke="#4caf50" stroke-width="2"/>
+    <text x="100" y="55" fill="#4caf50" font-family="Arial, sans-serif" font-size="48" font-weight="bold" text-anchor="middle">
+      <%= visited_countries.count %>
+    </text>
+    <text x="100" y="95" fill="white" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">
+      Countries
+    </text>
+  </g>
+  
+  <g transform="translate(500, 340)">
+    <rect x="0" y="0" width="200" height="120" rx="10" fill="rgba(76,175,80,0.2)" stroke="#4caf50" stroke-width="2"/>
+    <text x="100" y="55" fill="#4caf50" font-family="Arial, sans-serif" font-size="48" font-weight="bold" text-anchor="middle">
+      <%= total_visits %>
+    </text>
+    <text x="100" y="95" fill="white" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">
+      Trips
+    </text>
+  </g>
+  
+  <g transform="translate(750, 340)">
+    <rect x="0" y="0" width="200" height="120" rx="10" fill="rgba(76,175,80,0.2)" stroke="#4caf50" stroke-width="2"/>
+    <text x="100" y="55" fill="#4caf50" font-family="Arial, sans-serif" font-size="48" font-weight="bold" text-anchor="middle">
+      <%= ((visited_countries.count.to_f / 195) * 100).round %>%
+    </text>
+    <text x="100" y="95" fill="white" font-family="Arial, sans-serif" font-size="20" text-anchor="middle">
+      of World
+    </text>
+  </g>
+  
+  <!-- Home country -->
+  <% if home_country %>
+  <text x="600" y="520" fill="#aaa" font-family="Arial, sans-serif" font-size="24" text-anchor="middle">
+    Home: <tspan fill="#4caf50"><%= home_country[:name] %></tspan>
+  </text>
+  <% end %>
+  
+  <!-- Footer -->
+  <text x="600" y="590" fill="#666" font-family="Arial, sans-serif" font-size="18" text-anchor="middle">
+    Create your own at travel-heatmap.onrender.com
+  </text>
+</svg>

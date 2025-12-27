@@ -110,22 +110,10 @@ class CountriesController < ApplicationController
       return
     end
 
-    # Check if GeoJSON file exists
-    geojson_path = Rails.root.join("public", "ne_countries_admin_0.geojson")
-    
-    unless File.exist?(geojson_path)
-      if debug_mode
-        render json: { error: "GeoJSON file not found", path: geojson_path.to_s }, status: :internal_server_error
-        return
-      end
-      redirect_to "/default_og.svg"
-      return
-    end
-
     begin
-      # Generate SVG and convert to PNG using rsvg-convert
+      # Generate simple SVG (no map, just stats - for fast rendering)
       svg_data = render_to_string(
-        template: "countries/og_image_svg",
+        template: "countries/og_image_simple",
         layout: false,
         locals: { countries_data: @countries_data, shared_map: @shared_map }
       )
@@ -135,7 +123,6 @@ class CountriesController < ApplicationController
           svg_length: svg_data.length, 
           svg_preview: svg_data[0..500],
           rsvg_path: rsvg_path.strip,
-          geojson_exists: File.exist?(geojson_path),
           countries_count: @countries_data.count,
           visited_count: @countries_data.count { |c| c[:visited] }
         }
