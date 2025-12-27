@@ -1,4 +1,7 @@
 class CountriesController < ApplicationController
+  # Allow all browsers for og_image (for social media crawlers)
+  allow_browser versions: { chrome: 1, safari: 1, firefox: 1, opera: 1, ie: false }, only: :og_image
+  
   before_action :authenticate_user!, except: [ :shared, :og_image ]
   before_action :set_country, only: %i[ show edit update destroy ]
   skip_before_action :verify_authenticity_token, only: [ :update_visited, :create_shared ]
