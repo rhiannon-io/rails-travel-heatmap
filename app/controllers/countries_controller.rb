@@ -68,9 +68,12 @@ class CountriesController < ApplicationController
       return
     end
 
+    # Debug mode - if requested with ?debug=1
+    debug_mode = params[:debug] == "1"
+
     # Check if we have a cached image
     cache_key = "og_image_#{@shared_map.token}_#{@shared_map.updated_at.to_i}"
-    cached_image = Rails.cache.read(cache_key)
+    cached_image = Rails.cache.read(cache_key) unless debug_mode
 
     if cached_image
       send_data cached_image, type: "image/png", disposition: "inline"
@@ -93,16 +96,43 @@ class CountriesController < ApplicationController
       end
     end
 
-    # Generate SVG and convert to PNG using rsvg-convert
-    svg_data = render_to_string(
-      template: "countries/og_image_svg",
-      layout: false,
-      locals: { countries_data: @countries_data, shared_map: @shared_map }
-    )
-
+    # Check if rsvg-convert exists
     require "open3"
+    rsvg_check, rsvg_status = Open3.capture2e("which rsvg-convert")
     
+    if debug_mode && !rsvg_status.success?
+      render json: { error: "rsvg-convert not found", which_output: rsvg_check }, status: :internal_server_error
+      return
+    end
+
+    # Check if GeoJSON file exists
+    geojson_path = Rails.root.join("public", "ne_countries_admin_0.geojson")
+    
+    if debug_mode && !File.exist?(geojson_path)
+      render json: { error: "GeoJSON file not found", path: geojson_path.to_s }, status: :internal_server_error
+      return
+    end
+
     begin
+      # Generate SVG and convert to PNG using rsvg-convert
+      svg_data = render_to_string(
+        template: "countries/og_image_svg",
+        layout: false,
+        locals: { countries_data: @countries_data, shared_map: @shared_map }
+      )
+
+      if debug_mode
+        render json: { 
+          svg_length: svg_data.length, 
+          svg_preview: svg_data[0..500],
+          rsvg_path: rsvg_check.strip,
+          geojson_exists: File.exist?(geojson_path),
+          countries_count: @countries_data.count,
+          visited_count: @countries_data.count { |c| c[:visited] }
+        }
+        return
+      end
+      
       png_data, stderr, status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
 
       if status.success? && png_data.present?
@@ -115,7 +145,11 @@ class CountriesController < ApplicationController
     rescue => e
       Rails.logger.error "OG image generation error: #{e.class} - #{e.message}"
       Rails.logger.error e.backtrace.first(5).join("\n")
-      head :internal_server_error
+      if debug_mode
+        render json: { error: e.class.to_s, message: e.message, backtrace: e.backtrace.first(5) }, status: :internal_server_error
+      else
+        head :internal_server_error
+      end
     end
   end
 
