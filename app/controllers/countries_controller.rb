@@ -98,18 +98,27 @@ class CountriesController < ApplicationController
 
     # Check if rsvg-convert exists
     require "open3"
-    rsvg_check, rsvg_status = Open3.capture2e("which rsvg-convert")
+    rsvg_path, rsvg_status = Open3.capture2e("which rsvg-convert")
     
-    if debug_mode && !rsvg_status.success?
-      render json: { error: "rsvg-convert not found", which_output: rsvg_check }, status: :internal_server_error
+    unless rsvg_status.success?
+      if debug_mode
+        render json: { error: "rsvg-convert not found", which_output: rsvg_path }, status: :internal_server_error
+        return
+      end
+      # Fallback to a redirect to a placeholder or the SVG itself
+      redirect_to "/default_og.svg"
       return
     end
 
     # Check if GeoJSON file exists
     geojson_path = Rails.root.join("public", "ne_countries_admin_0.geojson")
     
-    if debug_mode && !File.exist?(geojson_path)
-      render json: { error: "GeoJSON file not found", path: geojson_path.to_s }, status: :internal_server_error
+    unless File.exist?(geojson_path)
+      if debug_mode
+        render json: { error: "GeoJSON file not found", path: geojson_path.to_s }, status: :internal_server_error
+        return
+      end
+      redirect_to "/default_og.svg"
       return
     end
 
@@ -125,7 +134,7 @@ class CountriesController < ApplicationController
         render json: { 
           svg_length: svg_data.length, 
           svg_preview: svg_data[0..500],
-          rsvg_path: rsvg_check.strip,
+          rsvg_path: rsvg_path.strip,
           geojson_exists: File.exist?(geojson_path),
           countries_count: @countries_data.count,
           visited_count: @countries_data.count { |c| c[:visited] }
@@ -140,7 +149,7 @@ class CountriesController < ApplicationController
         send_data png_data, type: "image/png", disposition: "inline"
       else
         Rails.logger.error "rsvg-convert failed: #{stderr}"
-        head :internal_server_error
+        redirect_to "/default_og.svg"
       end
     rescue => e
       Rails.logger.error "OG image generation error: #{e.class} - #{e.message}"
@@ -148,7 +157,7 @@ class CountriesController < ApplicationController
       if debug_mode
         render json: { error: e.class.to_s, message: e.message, backtrace: e.backtrace.first(5) }, status: :internal_server_error
       else
-        head :internal_server_error
+        redirect_to "/default_og.svg"
       end
     end
   end
