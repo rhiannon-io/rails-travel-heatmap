@@ -119,13 +119,30 @@ class CountriesController < ApplicationController
       )
 
       if debug_mode
-        render json: { 
-          svg_length: svg_data.length, 
-          svg_preview: svg_data[0..500],
-          rsvg_path: rsvg_path.strip,
-          countries_count: @countries_data.count,
-          visited_count: @countries_data.count { |c| c[:visited] }
-        }
+        # Try the conversion to see if it works
+        begin
+          test_png, test_stderr, test_status = Open3.capture3("rsvg-convert", "-w", "1200", "-h", "630", "-f", "png", stdin_data: svg_data)
+          render json: { 
+            svg_length: svg_data.length, 
+            svg_preview: svg_data[0..500],
+            rsvg_path: rsvg_path.strip,
+            countries_count: @countries_data.count,
+            visited_count: @countries_data.count { |c| c[:visited] },
+            conversion_success: test_status.success?,
+            conversion_stderr: test_stderr,
+            png_length: test_png.bytesize
+          }
+        rescue => conv_e
+          render json: { 
+            svg_length: svg_data.length, 
+            svg_preview: svg_data[0..500],
+            rsvg_path: rsvg_path.strip,
+            countries_count: @countries_data.count,
+            visited_count: @countries_data.count { |c| c[:visited] },
+            conversion_error: conv_e.class.to_s,
+            conversion_message: conv_e.message
+          }
+        end
         return
       end
       
