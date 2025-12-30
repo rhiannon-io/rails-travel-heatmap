@@ -2,19 +2,107 @@ import { Controller } from "@hotwired/stimulus"
 import * as d3 from "d3"
 import * as topojson from "topojson-client"
 
+// Helper function for visit count colors
+function getVisitColor(visitCount, homeCountry) {
+  if (homeCountry) return "#1565C0" // Blue for home country
+  if (visitCount === 1) return "#FFEB3B"
+  if (visitCount === 2) return "#FFC107"
+  if (visitCount === 3) return "#FF9800"
+  if (visitCount === 4) return "#FF5722"
+  if (visitCount === 5) return "#F44336"
+  if (visitCount >= 6 && visitCount < 10) return "#E91E63"
+  if (visitCount >= 10 && visitCount < 20) return "#9C27B0"
+  if (visitCount >= 20) return "#4A148C"
+  return "#E8E8E8"
+}
+
+// Helper function for rating colors (red → yellow → green diverging scale)
+function getRatingColor(rating, homeCountry) {
+  if (homeCountry) return "#1565C0" // Blue for home country
+  if (!rating) return "#CE93D8" // Visited but no rating - lavender purple
+  // Diverging scale: Red (bad) → Yellow (neutral) → Green (great)
+  const ratingColors = [
+    "#D32F2F", // 1 - Dark red
+    "#F44336", // 2 - Red
+    "#FF5722", // 3 - Deep orange
+    "#FF9800", // 4 - Orange
+    "#FFC107", // 5 - Amber
+    "#CDDC39", // 6 - Lime
+    "#8BC34A", // 7 - Light green
+    "#4CAF50", // 8 - Green
+    "#009688", // 9 - Teal
+    "#00695C"  // 10 - Dark teal
+  ]
+  return ratingColors[Math.min(rating, 10) - 1]
+}
+
 export default class extends Controller {
   static values = { data: Array }
 
   connect() {
     console.log("Map connected", this.dataValue, typeof this.dataValue)
+    this.viewMode = 'visits' // 'visits' or 'rating'
     this.renderMap()
     
     // Listen for country changes from checkboxes
     document.addEventListener('country-changed', this.handleCountryChange.bind(this))
+    // Listen for view mode toggle
+    document.addEventListener('map-view-changed', this.handleViewModeChange.bind(this))
+    // Listen for rating changes
+    document.addEventListener('rating-changed', this.handleRatingChange.bind(this))
   }
   
   disconnect() {
     document.removeEventListener('country-changed', this.handleCountryChange.bind(this))
+    document.removeEventListener('map-view-changed', this.handleViewModeChange.bind(this))
+    document.removeEventListener('rating-changed', this.handleRatingChange.bind(this))
+  }
+  
+  handleRatingChange(event) {
+    const { countryId, rating } = event.detail
+    const countryData = this.dataValue.find(c => c.id === parseInt(countryId))
+    if (!countryData) return
+    
+    // Update the rating in data
+    countryData.rating = rating
+    
+    // Update map immediately if we're in rating view mode
+    if (this.viewMode === 'rating') {
+      this.updateCountryOnMap(countryData)
+    }
+  }
+  
+  handleViewModeChange(event) {
+    this.viewMode = event.detail.mode
+    this.refreshAllCountryColors()
+    this.updateLegend()
+  }
+  
+  refreshAllCountryColors() {
+    const svg = d3.select(this.element).select('svg')
+    const data = this.dataValue
+    const viewMode = this.viewMode
+    
+    svg.selectAll('path').each(function(d) {
+      if (!d || !d.properties) return
+      
+      let country = data.find(c => c.iso_code && (c.iso_code === d.properties["ISO3166-1-Alpha-3"] || c.iso_code === d.properties["ISO3166-1-Alpha-2"]))
+      if (!country) {
+        country = data.find(c => c.name === d.properties.name)
+      }
+      
+      let color = "#E8E8E8" // Not visited
+      
+      if (country && country.visited) {
+        if (viewMode === 'rating') {
+          color = getRatingColor(country.rating, country.home_country)
+        } else {
+          color = getVisitColor(country.visit_count, country.home_country)
+        }
+      }
+      
+      d3.select(this).attr("fill", color)
+    })
   }
   
   handleCountryChange(event) {
@@ -22,15 +110,24 @@ export default class extends Controller {
     const countryData = this.dataValue.find(c => c.id === parseInt(countryId))
     if (!countryData) return
     
-    // Update the data
+    // Update all the data properties
+    countryData.visited = visitCount > 0
+    countryData.visit_count = visitCount > 0 ? visitCount : 1
     countryData.home_country = homeCountry || false
     
+    // Clear rating if country is being unchecked
+    if (visitCount === 0) {
+      countryData.rating = null
+    }
+    
     // Find and update the corresponding path element
-    this.updateCountryOnMap(countryData, visitCount)
+    this.updateCountryOnMap(countryData)
   }
   
-  updateCountryOnMap(countryData, visitCount) {
+  updateCountryOnMap(countryData) {
     const svg = d3.select(this.element).select('svg')
+    const viewMode = this.viewMode
+    
     svg.selectAll('path').each(function(d) {
       if (!d) return
       const isoMatch = countryData.iso_code && 
@@ -41,20 +138,11 @@ export default class extends Controller {
       if (isoMatch || nameMatch) {
         let color = "#E8E8E8" // Not visited
         
-        if (visitCount > 0) {
-          // Home country gets a distinct green color
-          if (countryData.home_country) {
-            color = "#4caf50"
+        if (countryData.visited) {
+          if (viewMode === 'rating') {
+            color = getRatingColor(countryData.rating, countryData.home_country)
           } else {
-            // Regular visit colors
-            if (visitCount === 1) color = "#FFEB3B"
-            else if (visitCount === 2) color = "#FFC107"
-            else if (visitCount === 3) color = "#FF9800"
-            else if (visitCount === 4) color = "#FF5722"
-            else if (visitCount === 5) color = "#F44336"
-            else if (visitCount >= 6 && visitCount < 10) color = "#E91E63"
-            else if (visitCount >= 10 && visitCount < 20) color = "#9C27B0"
-            else if (visitCount >= 20) color = "#4A148C"
+            color = getVisitColor(countryData.visit_count, countryData.home_country)
           }
         }
         
@@ -126,20 +214,12 @@ export default class extends Controller {
           }
           
           if (country && country.visited) {
-            // Home country gets a distinct green color
-            if (country.home_country) {
-              return "#4caf50"
+            // Use view mode to determine color
+            if (this.viewMode === 'rating') {
+              return getRatingColor(country.rating, country.home_country)
+            } else {
+              return getVisitColor(country.visit_count || 1, country.home_country)
             }
-            // Heatmap colors: yellow -> orange -> red -> dark red based on visit count
-            const visitCount = country.visit_count || 1
-            if (visitCount === 1) return "#FFEB3B"
-            if (visitCount === 2) return "#FFC107"
-            if (visitCount === 3) return "#FF9800"
-            if (visitCount === 4) return "#FF5722"
-            if (visitCount === 5) return "#F44336"
-            if (visitCount >= 6 && visitCount < 10) return "#E91E63"
-            if (visitCount >= 10 && visitCount < 20) return "#9C27B0"
-            return "#4A148C"
           }
           return "#E8E8E8"
         })
@@ -315,16 +395,33 @@ export default class extends Controller {
   addLegend(svg, width, height) {
     const legend = svg.append("g")
       .attr("class", "legend")
-      .attr("transform", `translate(${width - 150}, ${height - 270})`)
+      .attr("transform", `translate(${width - 150}, ${height - 340})`)
+    
+    this.drawLegendContent(legend)
+  }
+  
+  updateLegend() {
+    const svg = d3.select(this.element).select('svg')
+    const legend = svg.select('.legend')
+    
+    // Clear existing legend content
+    legend.selectAll('*').remove()
+    
+    this.drawLegendContent(legend)
+  }
+  
+  drawLegendContent(legend) {
+    const isRatingMode = this.viewMode === 'rating'
     
     // Add title with instructions
     legend.append("text")
+      .attr("class", "legend-title")
       .attr("x", 0)
       .attr("y", -10)
       .attr("font-size", "12px")
       .attr("font-weight", "bold")
       .attr("fill", "#333")
-      .text("Visit Count")
+      .text(isRatingMode ? "Country Rating" : "Visit Count")
     
     legend.append("text")
       .attr("x", 0)
@@ -340,9 +437,23 @@ export default class extends Controller {
       .attr("fill", "#666")
       .text("Shift+Click: Remove")
     
-    const legendData = [
+    const legendData = isRatingMode ? [
       { label: "Not visited", color: "#E8E8E8" },
-      { label: "🏠 Home country", color: "#4caf50" },
+      { label: "🏠 Home country", color: "#1565C0" },
+      { label: "Visited, no rating", color: "#CE93D8" },
+      { label: "1 😞", color: "#D32F2F" },
+      { label: "2", color: "#F44336" },
+      { label: "3", color: "#FF5722" },
+      { label: "4", color: "#FF9800" },
+      { label: "5 😐", color: "#FFC107" },
+      { label: "6", color: "#CDDC39" },
+      { label: "7", color: "#8BC34A" },
+      { label: "8", color: "#4CAF50" },
+      { label: "9", color: "#009688" },
+      { label: "10 🤩", color: "#00695C" }
+    ] : [
+      { label: "Not visited", color: "#E8E8E8" },
+      { label: "🏠 Home country", color: "#1565C0" },
       { label: "1 visit", color: "#FFEB3B" },
       { label: "2 visits", color: "#FFC107" },
       { label: "3 visits", color: "#FF9800" },
@@ -355,6 +466,7 @@ export default class extends Controller {
     
     legendData.forEach((item, i) => {
       const legendRow = legend.append("g")
+        .attr("class", "legend-item")
         .attr("transform", `translate(0, ${i * 20 + 30})`)
       
       legendRow.append("rect")
@@ -377,6 +489,7 @@ export default class extends Controller {
     const checkbox = document.getElementById(`country_${countryId}`)
     const countInput = document.getElementById(`country_count_${countryId}`)
     const homeCheckbox = document.getElementById(`country_home_${countryId}`)
+    const ratingInput = document.getElementById(`country_rating_${countryId}`)
     
     if (checkbox && countInput) {
       let newCount
@@ -385,6 +498,7 @@ export default class extends Controller {
         countInput.value = 1
         countInput.disabled = false
         if (homeCheckbox) homeCheckbox.disabled = false
+        if (ratingInput) ratingInput.disabled = false
         newCount = 1
       } else {
         let currentCount = parseInt(countInput.value) || 1
@@ -410,7 +524,7 @@ export default class extends Controller {
       // Trigger change event on input to trigger auto-save
       countInput.dispatchEvent(new Event('change', { bubbles: true }))
       
-      this.updateMapColor(pathElement, newCount, homeCheckbox ? homeCheckbox.checked : false)
+      this.updateMapColor(pathElement, countryData)
     }
   }
   
@@ -418,6 +532,7 @@ export default class extends Controller {
     const checkbox = document.getElementById(`country_${countryId}`)
     const countInput = document.getElementById(`country_count_${countryId}`)
     const homeCheckbox = document.getElementById(`country_home_${countryId}`)
+    const ratingInput = document.getElementById(`country_rating_${countryId}`)
     
     if (checkbox && countInput) {
       checkbox.checked = false
@@ -427,6 +542,10 @@ export default class extends Controller {
         homeCheckbox.checked = false
         homeCheckbox.disabled = true
       }
+      if (ratingInput) {
+        ratingInput.value = ''
+        ratingInput.disabled = true
+      }
       
       // Update the internal data array for tooltip
       const countryData = this.dataValue.find(c => c.id === parseInt(countryId))
@@ -434,6 +553,7 @@ export default class extends Controller {
         countryData.visited = false
         countryData.visit_count = 1
         countryData.home_country = false
+        countryData.rating = null
       }
       
       // Dispatch event to sync
@@ -445,23 +565,20 @@ export default class extends Controller {
       // Trigger change event on checkbox to trigger auto-save
       checkbox.dispatchEvent(new Event('change', { bubbles: true }))
       
-      this.updateMapColor(pathElement, 0, false)
+      this.updateMapColor(pathElement, countryData)
     }
   }
   
-  updateMapColor(pathElement, visitCount, homeCountry = false) {
+  updateMapColor(pathElement, countryData) {
     let color = "#E8E8E8"
     
-    if (homeCountry) {
-      color = "#4caf50"
-    } else if (visitCount === 1) color = "#FFEB3B"
-    else if (visitCount === 2) color = "#FFC107"
-    else if (visitCount === 3) color = "#FF9800"
-    else if (visitCount === 4) color = "#FF5722"
-    else if (visitCount === 5) color = "#F44336"
-    else if (visitCount >= 6 && visitCount < 10) color = "#E91E63"
-    else if (visitCount >= 10 && visitCount < 20) color = "#9C27B0"
-    else if (visitCount >= 20) color = "#4A148C"
+    if (countryData && countryData.visited) {
+      if (this.viewMode === 'rating') {
+        color = getRatingColor(countryData.rating, countryData.home_country)
+      } else {
+        color = getVisitColor(countryData.visit_count || 1, countryData.home_country)
+      }
+    }
     
     d3.select(pathElement).attr("fill", color)
   }

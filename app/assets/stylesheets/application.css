@@ -214,3 +214,141 @@
     align-items: flex-start;
   }
 }
+
+/* Country item with notes support */
+.country-item {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.country-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+/* Notes expand button */
+.notes-expand-btn {
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  opacity: 0.6;
+  transition: all 0.2s;
+}
+
+.notes-expand-btn:hover:not(:disabled) {
+  opacity: 1;
+  background-color: #f5f5f5;
+}
+
+.notes-expand-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.notes-expand-btn.has-notes {
+  opacity: 1;
+  background-color: #fff3e0;
+  border-color: #ff9800;
+}
+
+.notes-expand-btn.active {
+  background-color: #e3f2fd;
+  border-color: #0066cc;
+}
+
+/* Notes section (expandable) */
+.country-notes-section {
+  margin-top: 0.5rem;
+  margin-left: 1.5rem;
+  padding: 0.5rem;
+  background-color: #fafafa;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+}
+
+.notes-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+  line-height: 1.4;
+}
+
+.notes-textarea:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.notes-textarea:disabled {
+  background-color: #f5f5f5;
+  cursor: not-allowed;
+}
+
+.notes-char-count {
+  text-align: right;
+  font-size: 0.8rem;
+  color: #999;
+  margin-top: 0.25rem;
+}
+
+/* Shared mode notes display */
+.country-tag {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.country-tag-main {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.notes-toggle-btn {
+  background: none;
+  border: 1px solid #ff9800;
+  border-radius: 4px;
+  padding: 0.125rem 0.375rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  background-color: #fff3e0;
+}
+
+.notes-toggle-btn:hover {
+  background-color: #ffe0b2;
+}
+
+.country-notes-display {
+  display: none;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #fff;
+  border-radius: 4px;
+  border: 1px solid #e0e0e0;
+  font-size: 0.9rem;
+  color: #555;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.country-tag.expanded .country-notes-display {
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .country-notes-section {
+    margin-left: 0;
+  }
+}

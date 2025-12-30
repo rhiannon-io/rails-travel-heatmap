@@ -1,10 +1,39 @@
 <% if @shared_mode && @shared_map&.owner_name.present? %>
   <% content_for :title, "#{@shared_map.owner_name}'s Travel Heatmap" %>
+  <% content_for :og_title, "#{@shared_map.owner_name}'s Travel Heatmap" %>
+  <%
+    visited_count = @countries_data.count { |c| c[:visited] }
+    home = @countries_data.find { |c| c[:home_country] }
+  %>
+  <% content_for :og_description, "#{@shared_map.owner_name} has visited #{visited_count} countries#{home ? " and calls #{home[:name]} home" : ""}. Create your own travel heatmap!" %>
+  <% content_for :og_url, shared_url(@shared_map.token) %>
   <h1><%= @shared_map.owner_name %>'s Travel Heatmap</h1>
+<% elsif @shared_mode && @shared_map %>
+  <% content_for :title, "Shared Travel Heatmap" %>
+  <% content_for :og_title, "Shared Travel Heatmap" %>
+  <%
+    visited_count = @countries_data.count { |c| c[:visited] }
+  %>
+  <% content_for :og_description, "Check out this travel heatmap showing #{visited_count} countries visited. Create your own!" %>
+  <% content_for :og_url, shared_url(@shared_map.token) %>
+  <h1>Travel Heatmap</h1>
 <% else %>
   <% content_for :title, "Countries" %>
   <h1>Countries</h1>
 <% end %>
+
+<!-- Map View Toggle -->
+<div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+  <span style="font-size: 0.9rem; color: #666;">View:</span>
+  <div id="map-view-toggle" style="display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid #ddd;">
+    <button type="button" id="view-visits-btn" class="view-toggle-btn active" style="padding: 0.5rem 1rem; border: none; background-color: #0066cc; color: white; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">
+      🗺️ Visits
+    </button>
+    <button type="button" id="view-rating-btn" class="view-toggle-btn" style="padding: 0.5rem 1rem; border: none; background-color: white; color: #333; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">
+      ⭐ Rating
+    </button>
+  </div>
+</div>
 
 <div class="map-container" data-controller="map" data-map-data-value='<%= @countries_data.to_json %>'></div>
 
@@ -20,8 +49,13 @@
   <div style="margin-bottom: 1.5rem;">
     <p style="color: #666; font-size: 0.9rem; margin-bottom: 0.5rem;">
       💡 Tip: Your changes are automatically saved.
-      <span id="save-status" style="margin-left: 0.5rem; font-weight: 500;"></span>
     </p>
+    
+    <!-- Auto-save toast notification -->
+    <div id="autosave-toast" style="display: none; position: fixed; bottom: 20px; right: 20px; background-color: #4caf50; color: white; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 1000; font-size: 0.95rem; font-weight: 500; transition: opacity 0.3s ease, transform 0.3s ease; transform: translateY(10px); opacity: 0;">
+      <span id="toast-icon">✓</span> <span id="toast-message">Auto saved</span>
+    </div>
+    
     <div style="margin-bottom: 1rem;">
       <label for="owner-name-input" style="display: block; margin-bottom: 0.25rem; font-size: 0.9rem; color: #666;">Your name (optional, shown on shared map):</label>
       <div class="name-input-container">
@@ -55,8 +89,18 @@
   <h2>Select Visited Countries</h2>
   <p style="color: #666; margin-bottom: 1rem;">Check the countries you've visited, and optionally enter how many times. Default is 1.</p>
 
-  <div style="margin-bottom: 1rem;">
-    <input type="text" id="country-search" placeholder="Search countries..." style="width: 100%; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;" />
+  <div style="margin-bottom: 1rem; display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;">
+    <input type="text" id="country-search" placeholder="Search countries..." style="flex: 1; min-width: 200px; max-width: 400px; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem;" />
+    <div style="display: flex; align-items: center; gap: 0.5rem;">
+      <label style="font-size: 0.9rem; color: #666;">Show:</label>
+      <select id="country-filter" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; cursor: pointer;">
+        <option value="all">All Countries</option>
+        <option value="visited">Visited Only</option>
+        <option value="not-visited">Not Visited</option>
+        <option value="rated">Rated</option>
+        <option value="not-rated">Visited but Not Rated</option>
+      </select>
+    </div>
   </div>
 <% end %>
 
@@ -69,14 +113,31 @@
       <p style="color: #666; margin-bottom: 0.5rem;">This traveler has visited <%= visited_countries.count %> <%= visited_countries.count == 1 ? 'country' : 'countries' %><% if home %> and calls <%= home[:name] %> home 🏠<% end %>:</p>
       <div class="visited-countries-grid">
         <% visited_countries.each do |country| %>
-          <div class="country-tag <%= country[:home_country] ? 'home' : '' %>">
-            <% if country[:home_country] %>
-              <span style="font-size: 1rem;">🏠</span>
+          <div class="country-tag <%= country[:home_country] ? 'home' : '' %>" data-has-notes="<%= country[:notes].present? %>">
+            <div class="country-tag-main">
+              <% if country[:home_country] %>
+                <span style="font-size: 1rem;">🏠</span>
+              <% end %>
+              <span style="font-weight: 500;"><%= country[:name] %></span>
+              <span style="background-color: #0066cc; color: white; border-radius: 12px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;">
+                <%= country[:visit_count] %>
+              </span>
+              <% if country[:rating] %>
+                <span style="background-color: #ff9800; color: white; border-radius: 12px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;" title="Rating">
+                  ⭐ <%= country[:rating] %>/10
+                </span>
+              <% end %>
+              <% if country[:notes].present? %>
+                <button type="button" class="notes-toggle-btn" onclick="this.parentElement.parentElement.classList.toggle('expanded')" title="Show notes">
+                  📝
+                </button>
+              <% end %>
+            </div>
+            <% if country[:notes].present? %>
+              <div class="country-notes-display">
+                <%= country[:notes] %>
+              </div>
             <% end %>
-            <span style="font-weight: 500;"><%= country[:name] %></span>
-            <span style="background-color: #0066cc; color: white; border-radius: 12px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;">
-              <%= country[:visit_count] %>
-            </span>
           </div>
         <% end %>
       </div>
@@ -88,18 +149,29 @@
   <%= form_tag update_visited_countries_path, method: :patch, data: { turbo: false }, id: 'countries-form' do %>
     <div id="country-list" style="margin-bottom: 1rem;">
       <% @countries_data.each do |country| %>
-        <div class="country-item" data-country-name="<%= country[:name].downcase %>">
-          <%= check_box_tag "countries[#{country[:id]}][visited]", "1", country[:visited], id: "country_#{country[:id]}", class: "country-checkbox", "data-country-id" => country[:id] %>
-          <%= label_tag "country_#{country[:id]}", country[:name], style: "margin-left: 0.5rem; cursor: pointer; flex: 1; max-width: 200px;" %>
-          <% if country[:home_country] %>
-            <span class="home-badge" style="background-color: #4caf50; color: white; border-radius: 4px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;">🏠 HOME</span>
-          <% end %>
-          <span class="country-item-controls">
-            <label for="country_count_<%= country[:id] %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
-            <%= number_field_tag "countries[#{country[:id]}][visit_count]", country[:visit_count], min: 1, max: 99, id: "country_count_#{country[:id]}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "visit-count-input" %>
-            <%= check_box_tag "countries[#{country[:id]}][home_country]", "1", country[:home_country], id: "country_home_#{country[:id]}", title: "Mark as home country", style: "margin-left: 0.5rem; cursor: pointer;", disabled: !country[:visited], class: "home-country-checkbox", "data-country-id" => country[:id] %>
-            <label for="country_home_<%= country[:id] %>" style="font-size: 0.9rem; color: #666; cursor: pointer;" title="Mark as home country">🏠</label>
-          </span>
+        <div class="country-item" data-country-name="<%= country[:name].downcase %>" data-country-id="<%= country[:id] %>" data-visited="<%= country[:visited] %>" data-rated="<%= country[:rating].present? %>">
+          <div class="country-item-main">
+            <%= check_box_tag "countries[#{country[:id]}][visited]", "1", country[:visited], id: "country_#{country[:id]}", class: "country-checkbox", "data-country-id" => country[:id] %>
+            <%= label_tag "country_#{country[:id]}", country[:name], style: "margin-left: 0.5rem; cursor: pointer; flex: 1; max-width: 200px;" %>
+            <% if country[:home_country] %>
+              <span class="home-badge" style="background-color: #4caf50; color: white; border-radius: 4px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;">🏠 HOME</span>
+            <% end %>
+            <button type="button" class="notes-expand-btn <%= country[:notes].present? ? 'has-notes' : '' %>" data-country-id="<%= country[:id] %>" title="<%= country[:notes].present? ? 'Edit notes' : 'Add notes' %>" <%= !country[:visited] ? 'disabled' : '' %>>
+              📝
+            </button>
+            <span class="country-item-controls">
+              <label for="country_count_<%= country[:id] %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
+              <%= number_field_tag "countries[#{country[:id]}][visit_count]", country[:visit_count], min: 1, max: 99, id: "country_count_#{country[:id]}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "visit-count-input" %>
+              <label for="country_rating_<%= country[:id] %>" style="font-size: 0.9rem; color: #666; margin-left: 0.5rem;">Rating:</label>
+              <%= select_tag "countries[#{country[:id]}][rating]", options_for_select([["—", ""], ["1", 1], ["2", 2], ["3", 3], ["4", 4], ["5", 5], ["6", 6], ["7", 7], ["8", 8], ["9", 9], ["10", 10]], country[:rating]), id: "country_rating_#{country[:id]}", style: "width: 55px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "rating-input" %>
+              <%= check_box_tag "countries[#{country[:id]}][home_country]", "1", country[:home_country], id: "country_home_#{country[:id]}", title: "Mark as home country", style: "margin-left: 0.5rem; cursor: pointer;", disabled: !country[:visited], class: "home-country-checkbox", "data-country-id" => country[:id] %>
+              <label for="country_home_<%= country[:id] %>" style="font-size: 0.9rem; color: #666; cursor: pointer;" title="Mark as home country">🏠</label>
+            </span>
+          </div>
+          <div class="country-notes-section" id="notes-section-<%= country[:id] %>" style="display: none;">
+            <%= text_area_tag "countries[#{country[:id]}][notes]", country[:notes], id: "country_notes_#{country[:id]}", class: "notes-textarea", placeholder: "Add notes about your visit... (max 1000 characters)", maxlength: 1000, disabled: !country[:visited] %>
+            <div class="notes-char-count"><span id="notes-count-<%= country[:id] %>"><%= country[:notes]&.length || 0 %></span>/1000</div>
+          </div>
         </div>
       <% end %>
     </div>
@@ -108,31 +180,128 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // Map view toggle functionality
+    const viewVisitsBtn = document.getElementById('view-visits-btn');
+    const viewRatingBtn = document.getElementById('view-rating-btn');
+    
+    function setActiveView(mode) {
+      if (mode === 'visits') {
+        viewVisitsBtn.style.backgroundColor = '#0066cc';
+        viewVisitsBtn.style.color = 'white';
+        viewRatingBtn.style.backgroundColor = 'white';
+        viewRatingBtn.style.color = '#333';
+      } else {
+        viewRatingBtn.style.backgroundColor = '#0066cc';
+        viewRatingBtn.style.color = 'white';
+        viewVisitsBtn.style.backgroundColor = 'white';
+        viewVisitsBtn.style.color = '#333';
+      }
+      
+      // Dispatch event to map controller
+      const event = new CustomEvent('map-view-changed', {
+        detail: { mode: mode }
+      });
+      document.dispatchEvent(event);
+    }
+    
+    viewVisitsBtn.addEventListener('click', function() {
+      setActiveView('visits');
+    });
+    
+    viewRatingBtn.addEventListener('click', function() {
+      setActiveView('rating');
+    });
+    
     <% unless @shared_mode %>
     const searchInput = document.getElementById('country-search');
+    const countryFilter = document.getElementById('country-filter');
     const countryItems = document.querySelectorAll('.country-item');
     
-    // Search functionality
-    searchInput.addEventListener('input', function() {
-      const searchTerm = this.value.toLowerCase().trim();
+    // Combined filter function for search and dropdown
+    function applyFilters() {
+      const searchTerm = searchInput.value.toLowerCase().trim();
+      const filterValue = countryFilter.value;
       
       countryItems.forEach(function(item) {
         const countryName = item.getAttribute('data-country-name');
-        if (countryName.includes(searchTerm)) {
-          item.style.display = '';
-        } else {
-          item.style.display = 'none';
+        const isVisited = item.getAttribute('data-visited') === 'true';
+        const isRated = item.getAttribute('data-rated') === 'true';
+        
+        // Check search match
+        const matchesSearch = countryName.includes(searchTerm);
+        
+        // Check filter match
+        let matchesFilter = true;
+        switch (filterValue) {
+          case 'visited':
+            matchesFilter = isVisited;
+            break;
+          case 'not-visited':
+            matchesFilter = !isVisited;
+            break;
+          case 'rated':
+            matchesFilter = isVisited && isRated;
+            break;
+          case 'not-rated':
+            matchesFilter = isVisited && !isRated;
+            break;
+          default: // 'all'
+            matchesFilter = true;
         }
+        
+        item.style.display = (matchesSearch && matchesFilter) ? '' : 'none';
       });
-    });
+    }
+    
+    // Search functionality
+    searchInput.addEventListener('input', applyFilters);
+    
+    // Filter dropdown functionality
+    countryFilter.addEventListener('change', applyFilters);
     
     // Auto-save functionality
     let saveTimeout = null;
     let isSaving = false;
-    const saveStatus = document.getElementById('save-status');
+    const autosaveToast = document.getElementById('autosave-toast');
+    const toastIcon = document.getElementById('toast-icon');
+    const toastMessage = document.getElementById('toast-message');
+    let toastHideTimeout = null;
+    
+    function showToast(message, isError = false) {
+      // Clear any pending hide timeout
+      if (toastHideTimeout) {
+        clearTimeout(toastHideTimeout);
+      }
+      
+      // Update toast content and style
+      toastIcon.textContent = isError ? '❌' : '✓';
+      toastMessage.textContent = message;
+      autosaveToast.style.backgroundColor = isError ? '#f44336' : '#4caf50';
+      
+      // Show toast with animation
+      autosaveToast.style.display = 'block';
+      setTimeout(() => {
+        autosaveToast.style.opacity = '1';
+        autosaveToast.style.transform = 'translateY(0)';
+      }, 10);
+      
+      // Hide toast after delay
+      toastHideTimeout = setTimeout(() => {
+        autosaveToast.style.opacity = '0';
+        autosaveToast.style.transform = 'translateY(10px)';
+        setTimeout(() => {
+          autosaveToast.style.display = 'none';
+        }, 300);
+      }, isError ? 4000 : 2000);
+    }
     
     function autoSave() {
-      if (isSaving) return;
+      if (isSaving) {
+        // If already saving, queue another save after current one completes
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => autoSave(), 100);
+        return;
+      }
       
       clearTimeout(saveTimeout);
       saveTimeout = setTimeout(async () => {
@@ -140,9 +309,8 @@
         const form = document.getElementById('countries-form');
         const formData = new FormData(form);
         
-        // Show saving indicator
-        saveStatus.textContent = '💾 Saving...';
-        saveStatus.style.color = '#666';
+        // Show saving indicator immediately
+        showToast('Saving...');
         
         try {
           const response = await fetch(form.action, {
@@ -155,25 +323,17 @@
           });
           
           if (response.ok) {
-            saveStatus.textContent = '✓ Saved';
-            saveStatus.style.color = '#4caf50';
-            setTimeout(() => {
-              saveStatus.textContent = '';
-            }, 2000);
+            showToast('Auto saved');
           } else {
             throw new Error('Save failed');
           }
         } catch (error) {
           console.error('Auto-save error:', error);
-          saveStatus.textContent = '❌ Save failed';
-          saveStatus.style.color = '#f44336';
-          setTimeout(() => {
-            saveStatus.textContent = '';
-          }, 3000);
+          showToast('Save failed', true);
         } finally {
           isSaving = false;
         }
-      }, 1000); // Wait 1 second after last change before saving
+      }, 500); // Wait 500ms after last change before saving (reduced from 1s)
     }
     
     // Enable/disable visit count inputs based on checkbox state
@@ -182,11 +342,16 @@
       const countryId = checkbox.getAttribute('data-country-id');
       const countInput = document.getElementById(`country_count_${countryId}`);
       const homeCheckbox = document.getElementById(`country_home_${countryId}`);
+      const ratingInput = document.getElementById(`country_rating_${countryId}`);
+      const countryItem = document.querySelector(`.country-item[data-country-id="${countryId}"]`);
       
       // Set initial state based on whether checkbox is checked
       countInput.disabled = !checkbox.checked;
       if (homeCheckbox) {
         homeCheckbox.disabled = !checkbox.checked;
+      }
+      if (ratingInput) {
+        ratingInput.disabled = !checkbox.checked;
       }
       
       checkbox.addEventListener('change', function() {
@@ -197,6 +362,21 @@
             homeCheckbox.checked = false;
           }
         }
+        if (ratingInput) {
+          ratingInput.disabled = !this.checked;
+          if (!this.checked) {
+            ratingInput.value = '';
+            // Update data attribute for rating
+            if (countryItem) countryItem.setAttribute('data-rated', 'false');
+          }
+        }
+        // Update data attribute for visited
+        if (countryItem) {
+          countryItem.setAttribute('data-visited', this.checked ? 'true' : 'false');
+        }
+        // Reapply filters in case the current filter should hide/show this item
+        applyFilters();
+        
         if (this.checked) {
           if (countInput.value === '' || countInput.value === '0') {
             countInput.value = '1';
@@ -229,6 +409,24 @@
         // Trigger auto-save
         autoSave();
       });
+      
+      // Trigger auto-save when rating changes and dispatch event to update map
+      if (ratingInput) {
+        ratingInput.addEventListener('change', function() {
+          // Update data attribute for rated status
+          if (countryItem) {
+            countryItem.setAttribute('data-rated', this.value ? 'true' : 'false');
+          }
+          // Reapply filters
+          applyFilters();
+          // Dispatch event to update map with new rating
+          const event = new CustomEvent('rating-changed', {
+            detail: { countryId: countryId, rating: this.value ? parseInt(this.value) : null }
+          });
+          document.dispatchEvent(event);
+          autoSave();
+        });
+      }
     });
     
     // Handle home country checkboxes - only one can be checked at a time
@@ -252,6 +450,60 @@
         });
         document.dispatchEvent(event);
         autoSave();
+      });
+    });
+    
+    // Handle notes expand buttons
+    const notesExpandBtns = document.querySelectorAll('.notes-expand-btn');
+    notesExpandBtns.forEach(function(btn) {
+      const countryId = btn.getAttribute('data-country-id');
+      const notesSection = document.getElementById(`notes-section-${countryId}`);
+      const notesTextarea = document.getElementById(`country_notes_${countryId}`);
+      const notesCount = document.getElementById(`notes-count-${countryId}`);
+      
+      btn.addEventListener('click', function() {
+        if (this.disabled) return;
+        
+        const isExpanded = notesSection.style.display !== 'none';
+        notesSection.style.display = isExpanded ? 'none' : 'block';
+        btn.classList.toggle('active', !isExpanded);
+        
+        if (!isExpanded) {
+          notesTextarea.focus();
+        }
+      });
+      
+      // Update character count as user types
+      notesTextarea.addEventListener('input', function() {
+        notesCount.textContent = this.value.length;
+        
+        // Update has-notes indicator
+        btn.classList.toggle('has-notes', this.value.trim().length > 0);
+        
+        // Trigger auto-save
+        autoSave();
+      });
+    });
+    
+    // Update checkbox change handler to also handle notes
+    checkboxes.forEach(function(checkbox) {
+      const countryId = checkbox.getAttribute('data-country-id');
+      const notesExpandBtn = document.querySelector(`.notes-expand-btn[data-country-id="${countryId}"]`);
+      const notesSection = document.getElementById(`notes-section-${countryId}`);
+      const notesTextarea = document.getElementById(`country_notes_${countryId}`);
+      
+      checkbox.addEventListener('change', function() {
+        if (notesExpandBtn) {
+          notesExpandBtn.disabled = !this.checked;
+        }
+        if (notesTextarea) {
+          notesTextarea.disabled = !this.checked;
+        }
+        // Collapse notes section when unchecking
+        if (!this.checked && notesSection) {
+          notesSection.style.display = 'none';
+          if (notesExpandBtn) notesExpandBtn.classList.remove('active');
+        }
       });
     });
     

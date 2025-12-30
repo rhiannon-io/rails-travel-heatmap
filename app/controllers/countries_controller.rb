@@ -18,7 +18,9 @@ class CountriesController < ApplicationController
         iso_code: c.iso_code,
         visited: user_country.present?,
         visit_count: user_country&.visit_count || 1,
-        home_country: user_country&.home_country || false
+        home_country: user_country&.home_country || false,
+        rating: user_country&.rating,
+        notes: user_country&.notes
       }
     end
 
@@ -47,12 +49,12 @@ class CountriesController < ApplicationController
         country_info = shared_data[c.iso_code]
         # Handle both old format (just number) and new format (hash with visits and home)
         if country_info.is_a?(Hash)
-          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info["visits"] || country_info["visit_count"] || 1, home_country: country_info["home"] || false }
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info["visits"] || country_info["visit_count"] || 1, home_country: country_info["home"] || false, rating: country_info["rating"], notes: country_info["notes"] }
         else
-          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info, home_country: false }
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info, home_country: false, rating: nil, notes: nil }
         end
       else
-        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1, home_country: false }
+        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1, home_country: false, rating: nil, notes: nil }
       end
     end
 
@@ -64,10 +66,10 @@ class CountriesController < ApplicationController
     # Get current user's visited countries through the join table
     user_countries = current_user.user_countries.includes(:country)
 
-    # Build data hash with ISO codes, visit counts, and home country status
+    # Build data hash with ISO codes, visit counts, home country status, rating, and notes
     data = {}
     user_countries.each do |uc|
-      data[uc.country.iso_code] = { visits: uc.visit_count, home: uc.home_country }
+      data[uc.country.iso_code] = { visits: uc.visit_count, home: uc.home_country, rating: uc.rating, notes: uc.notes }
     end
 
     # Get owner name from params
@@ -101,16 +103,21 @@ class CountriesController < ApplicationController
     # Remove all existing user_countries for this user
     current_user.user_countries.destroy_all
 
-    # Create user_countries for visited countries with their visit counts
+    # Create user_countries for visited countries with their visit counts and ratings
     countries_params.each do |country_id, country_data|
       if country_data[:visited] == "1"
         visit_count = country_data[:visit_count].to_i
         visit_count = 1 if visit_count < 1 # Ensure at least 1
         home_country = country_data[:home_country] == "1"
+        rating = country_data[:rating].present? ? country_data[:rating].to_i : nil
+        rating = nil if rating && (rating < 1 || rating > 10) # Ensure rating is 1-10 or nil
+        notes = country_data[:notes].present? ? country_data[:notes].to_s.strip[0, 1000] : nil # Limit to 1000 chars
         current_user.user_countries.create!(
           country_id: country_id,
           visit_count: visit_count,
-          home_country: home_country
+          home_country: home_country,
+          rating: rating,
+          notes: notes
         )
       end
     end

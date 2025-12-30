@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2025_12_27_021848) do
+ActiveRecord::Schema[8.1].define(version: 2025_12_30_221231) do
   create_table "countries", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "iso_code"
@@ -44,6 +44,8 @@ ActiveRecord::Schema[8.1].define(version: 2025_12_27_021848) do
     t.integer "country_id", null: false
     t.datetime "created_at", null: false
     t.boolean "home_country", default: false, null: false
+    t.text "notes"
+    t.integer "rating"
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.integer "visit_count", default: 1, null: false
