@@ -110,7 +110,7 @@ class CountriesController < ApplicationController
         visit_count = 1 if visit_count < 1 # Ensure at least 1
         home_country = country_data[:home_country] == "1"
         rating = country_data[:rating].present? ? country_data[:rating].to_i : nil
-        rating = nil if rating && (rating < 1 || rating > 10) # Ensure rating is 1-10 or nil
+        rating = nil if rating && (rating < 1 || rating > 5) # Ensure rating is 1-5 or nil
         notes = country_data[:notes].present? ? country_data[:notes].to_s.strip[0, 1000] : nil # Limit to 1000 chars
         current_user.user_countries.create!(
           country_id: country_id,

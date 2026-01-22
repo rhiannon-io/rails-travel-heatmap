@@ -3,7 +3,7 @@ class UserCountry < ApplicationRecord
   belongs_to :country
 
   validates :visit_count, presence: true, numericality: { greater_than: 0, only_integer: true }
-  validates :rating, numericality: { in: 1..10, only_integer: true }, allow_nil: true
+  validates :rating, numericality: { in: 1..5, only_integer: true }, allow_nil: true
   validates :notes, length: { maximum: 1000 }, allow_nil: true
   validates :user_id, uniqueness: { scope: :country_id }
   validate :only_one_home_country_per_user

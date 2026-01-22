@@ -16,24 +16,19 @@ function getVisitColor(visitCount, homeCountry) {
   return "#E8E8E8"
 }
 
-// Helper function for rating colors (red → yellow → green diverging scale)
+// Helper function for rating colors (red → yellow → green scale)
 function getRatingColor(rating, homeCountry) {
   if (homeCountry) return "#1565C0" // Blue for home country
-  if (!rating) return "#CE93D8" // Visited but no rating - lavender purple
-  // Diverging scale: Red (bad) → Yellow (neutral) → Green (great)
+  if (!rating) return "#757575" // Visited but no rating - dark gray
+  // Red (bad) → Yellow (neutral) → Green (great)
   const ratingColors = [
-    "#D32F2F", // 1 - Dark red
-    "#F44336", // 2 - Red
-    "#FF5722", // 3 - Deep orange
-    "#FF9800", // 4 - Orange
-    "#FFC107", // 5 - Amber
-    "#CDDC39", // 6 - Lime
-    "#8BC34A", // 7 - Light green
-    "#4CAF50", // 8 - Green
-    "#009688", // 9 - Teal
-    "#00695C"  // 10 - Dark teal
+    "#E53935", // 1 - Red
+    "#FF9800", // 2 - Orange
+    "#FDD835", // 3 - Yellow
+    "#7CB342", // 4 - Light green
+    "#2E7D32"  // 5 - Dark green
   ]
-  return ratingColors[Math.min(rating, 10) - 1]
+  return ratingColors[Math.min(rating, 5) - 1]
 }
 
 export default class extends Controller {
@@ -440,17 +435,12 @@ export default class extends Controller {
     const legendData = isRatingMode ? [
       { label: "Not visited", color: "#E8E8E8" },
       { label: "🏠 Home country", color: "#1565C0" },
-      { label: "Visited, no rating", color: "#CE93D8" },
-      { label: "1 😞", color: "#D32F2F" },
-      { label: "2", color: "#F44336" },
-      { label: "3", color: "#FF5722" },
-      { label: "4", color: "#FF9800" },
-      { label: "5 😐", color: "#FFC107" },
-      { label: "6", color: "#CDDC39" },
-      { label: "7", color: "#8BC34A" },
-      { label: "8", color: "#4CAF50" },
-      { label: "9", color: "#009688" },
-      { label: "10 🤩", color: "#00695C" }
+      { label: "Visited, no rating", color: "#757575" },
+      { label: "1 😞", color: "#E53935" },
+      { label: "2", color: "#FF9800" },
+      { label: "3 😐", color: "#FDD835" },
+      { label: "4", color: "#7CB342" },
+      { label: "5 🤩", color: "#2E7D32" }
     ] : [
       { label: "Not visited", color: "#E8E8E8" },
       { label: "🏠 Home country", color: "#1565C0" },

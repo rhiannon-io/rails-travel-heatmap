@@ -35,6 +35,11 @@
   </div>
 </div>
 
+<!-- Map Title Header -->
+<h2 id="map-view-title" style="margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #333;">
+  <span style="color: #FF9800;">🔥</span> Visit Frequency Heatmap
+</h2>
+
 <div class="map-container" data-controller="map" data-map-data-value='<%= @countries_data.to_json %>'></div>
 
 <% if @shared_mode %>
@@ -124,7 +129,7 @@
               </span>
               <% if country[:rating] %>
                 <span style="background-color: #ff9800; color: white; border-radius: 12px; padding: 0.125rem 0.5rem; font-size: 0.85rem; font-weight: bold;" title="Rating">
-                  ⭐ <%= country[:rating] %>/10
+                  ⭐ <%= country[:rating] %>/5
                 </span>
               <% end %>
               <% if country[:notes].present? %>
@@ -163,7 +168,7 @@
               <label for="country_count_<%= country[:id] %>" style="font-size: 0.9rem; color: #666;">Visits:</label>
               <%= number_field_tag "countries[#{country[:id]}][visit_count]", country[:visit_count], min: 1, max: 99, id: "country_count_#{country[:id]}", style: "width: 60px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "visit-count-input" %>
               <label for="country_rating_<%= country[:id] %>" style="font-size: 0.9rem; color: #666; margin-left: 0.5rem;">Rating:</label>
-              <%= select_tag "countries[#{country[:id]}][rating]", options_for_select([["—", ""], ["1", 1], ["2", 2], ["3", 3], ["4", 4], ["5", 5], ["6", 6], ["7", 7], ["8", 8], ["9", 9], ["10", 10]], country[:rating]), id: "country_rating_#{country[:id]}", style: "width: 55px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "rating-input" %>
+              <%= select_tag "countries[#{country[:id]}][rating]", options_for_select([["—", ""], ["1", 1], ["2", 2], ["3", 3], ["4", 4], ["5", 5]], country[:rating]), id: "country_rating_#{country[:id]}", style: "width: 55px; padding: 0.25rem; border: 1px solid #ddd; border-radius: 4px;", disabled: !country[:visited], class: "rating-input" %>
               <%= check_box_tag "countries[#{country[:id]}][home_country]", "1", country[:home_country], id: "country_home_#{country[:id]}", title: "Mark as home country", style: "margin-left: 0.5rem; cursor: pointer;", disabled: !country[:visited], class: "home-country-checkbox", "data-country-id" => country[:id] %>
               <label for="country_home_<%= country[:id] %>" style="font-size: 0.9rem; color: #666; cursor: pointer;" title="Mark as home country">🏠</label>
             </span>
@@ -183,6 +188,7 @@
     // Map view toggle functionality
     const viewVisitsBtn = document.getElementById('view-visits-btn');
     const viewRatingBtn = document.getElementById('view-rating-btn');
+    const mapViewTitle = document.getElementById('map-view-title');
     
     function setActiveView(mode) {
       if (mode === 'visits') {
@@ -190,11 +196,13 @@
         viewVisitsBtn.style.color = 'white';
         viewRatingBtn.style.backgroundColor = 'white';
         viewRatingBtn.style.color = '#333';
+        mapViewTitle.innerHTML = '<span style="color: #FF9800;">🔥</span> Visit Frequency Heatmap';
       } else {
         viewRatingBtn.style.backgroundColor = '#0066cc';
         viewRatingBtn.style.color = 'white';
         viewVisitsBtn.style.backgroundColor = 'white';
         viewVisitsBtn.style.color = '#333';
+        mapViewTitle.innerHTML = '<span style="color: #2E7D32;">⭐</span> Country Rating Heatmap';
       }
       
       // Dispatch event to map controller
