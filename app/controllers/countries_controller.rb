@@ -10,17 +10,45 @@ class CountriesController < ApplicationController
     # Get user's visited countries through the join table
     user_country_map = current_user.user_countries.includes(:country).index_by(&:country_id)
 
+    # Calculate max visits for log-scale normalization
+    max_visits = user_country_map.values.map(&:visit_count).max || 1
+    max_visits = [max_visits, 2].max # Ensure at least 2 to avoid log(1) = 0 issues
+
     @countries_data = @countries.map do |c|
       user_country = user_country_map[c.id]
+      visit_count = user_country&.visit_count || 1
+      rating = user_country&.rating
+      visited = user_country.present?
+
+      # Calculate normalized frequency (1-5 scale) using log scale
+      normalized_frequency = if visited && max_visits > 1
+        (Math.log(visit_count) / Math.log(max_visits) * 4) + 1 # Maps to 1-5
+      else
+        1
+      end
+      normalized_frequency = [[normalized_frequency, 5].min, 1].max # Clamp to 1-5
+
+      # Calculate super score
+      super_score = if visited
+        if rating
+          (0.70 * rating) + (0.30 * normalized_frequency)
+        else
+          normalized_frequency * 0.5
+        end
+      else
+        nil
+      end
+
       {
         id: c.id,
         name: c.name,
         iso_code: c.iso_code,
-        visited: user_country.present?,
-        visit_count: user_country&.visit_count || 1,
+        visited: visited,
+        visit_count: visit_count,
         home_country: user_country&.home_country || false,
-        rating: user_country&.rating,
-        notes: user_country&.notes
+        rating: rating,
+        notes: user_country&.notes,
+        super_score: super_score&.round(2)
       }
     end
 
@@ -43,18 +71,38 @@ class CountriesController < ApplicationController
     # Parse the stored data (format: {"USA":{"visits":5,"home":false}})
     shared_data = JSON.parse(@shared_map.data)
 
+    # Calculate max visits for log-scale normalization
+    max_visits = shared_data.values.map { |v| v.is_a?(Hash) ? (v["visits"] || v["visit_count"] || 1) : v }.max || 1
+    max_visits = [max_visits, 2].max
+
     # Map shared data to countries, preserving visit counts and home country status
     @countries_data = @countries.map do |c|
       if shared_data.key?(c.iso_code)
         country_info = shared_data[c.iso_code]
         # Handle both old format (just number) and new format (hash with visits and home)
         if country_info.is_a?(Hash)
-          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info["visits"] || country_info["visit_count"] || 1, home_country: country_info["home"] || false, rating: country_info["rating"], notes: country_info["notes"] }
+          visit_count = country_info["visits"] || country_info["visit_count"] || 1
+          rating = country_info["rating"]
+          
+          # Calculate normalized frequency
+          normalized_frequency = (Math.log(visit_count) / Math.log(max_visits) * 4) + 1
+          normalized_frequency = [[normalized_frequency, 5].min, 1].max
+          
+          # Calculate super score
+          super_score = if rating
+            (0.70 * rating) + (0.30 * normalized_frequency)
+          else
+            normalized_frequency * 0.5
+          end
+          
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: visit_count, home_country: country_info["home"] || false, rating: rating, notes: country_info["notes"], super_score: super_score.round(2) }
         else
-          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info, home_country: false, rating: nil, notes: nil }
+          normalized_frequency = (Math.log(country_info) / Math.log(max_visits) * 4) + 1
+          normalized_frequency = [[normalized_frequency, 5].min, 1].max
+          { id: c.id, name: c.name, iso_code: c.iso_code, visited: true, visit_count: country_info, home_country: false, rating: nil, notes: nil, super_score: (normalized_frequency * 0.5).round(2) }
         end
       else
-        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1, home_country: false, rating: nil, notes: nil }
+        { id: c.id, name: c.name, iso_code: c.iso_code, visited: false, visit_count: 1, home_country: false, rating: nil, notes: nil, super_score: nil }
       end
     end
 

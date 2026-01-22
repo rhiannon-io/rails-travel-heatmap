@@ -23,21 +23,27 @@
 <% end %>
 
 <!-- Map View Toggle -->
-<div style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+<div style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
   <span style="font-size: 0.9rem; color: #666;">View:</span>
   <div id="map-view-toggle" style="display: inline-flex; border-radius: 6px; overflow: hidden; border: 1px solid #ddd;">
-    <button type="button" id="view-visits-btn" class="view-toggle-btn active" style="padding: 0.5rem 1rem; border: none; background-color: #0066cc; color: white; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">
-      🗺️ Visits
+    <button type="button" id="view-top-btn" class="view-toggle-btn active" style="padding: 0.5rem 1rem; border: none; background-color: #0066cc; color: white; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">
+      🏆 Top Countries
+    </button>
+    <button type="button" id="view-visits-btn" class="view-toggle-btn" style="padding: 0.5rem 1rem; border: none; background-color: white; color: #333; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">
+      🔥 Visits
     </button>
     <button type="button" id="view-rating-btn" class="view-toggle-btn" style="padding: 0.5rem 1rem; border: none; background-color: white; color: #333; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;">
-      ⭐ Rating
+      ⭐ Ratings
     </button>
   </div>
 </div>
+<p id="map-view-description" style="margin: 0 0 0.5rem 0; font-size: 0.85rem; color: #666;">
+  Top countries are displayed based on a combination of visit frequency and country rating.
+</p>
 
 <!-- Map Title Header -->
 <h2 id="map-view-title" style="margin: 0 0 0.5rem 0; font-size: 1.25rem; color: #333;">
-  <span style="color: #FF9800;">🔥</span> Visit Frequency Heatmap
+  <span style="color: #DAA520;">🏆</span> Top Countries
 </h2>
 
 <div class="map-container" data-controller="map" data-map-data-value='<%= @countries_data.to_json %>'></div>
@@ -186,23 +192,37 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Map view toggle functionality
+    const viewTopBtn = document.getElementById('view-top-btn');
     const viewVisitsBtn = document.getElementById('view-visits-btn');
     const viewRatingBtn = document.getElementById('view-rating-btn');
     const mapViewTitle = document.getElementById('map-view-title');
+    const mapViewDescription = document.getElementById('map-view-description');
     
     function setActiveView(mode) {
-      if (mode === 'visits') {
+      // Reset all buttons
+      viewTopBtn.style.backgroundColor = 'white';
+      viewTopBtn.style.color = '#333';
+      viewVisitsBtn.style.backgroundColor = 'white';
+      viewVisitsBtn.style.color = '#333';
+      viewRatingBtn.style.backgroundColor = 'white';
+      viewRatingBtn.style.color = '#333';
+      
+      if (mode === 'top') {
+        viewTopBtn.style.backgroundColor = '#0066cc';
+        viewTopBtn.style.color = 'white';
+        mapViewTitle.innerHTML = '<span style="color: #DAA520;">🏆</span> Top Countries';
+        mapViewDescription.textContent = 'Top countries are displayed based on a combination of visit frequency and country rating.';
+        mapViewDescription.style.display = 'block';
+      } else if (mode === 'visits') {
         viewVisitsBtn.style.backgroundColor = '#0066cc';
         viewVisitsBtn.style.color = 'white';
-        viewRatingBtn.style.backgroundColor = 'white';
-        viewRatingBtn.style.color = '#333';
         mapViewTitle.innerHTML = '<span style="color: #FF9800;">🔥</span> Visit Frequency Heatmap';
+        mapViewDescription.style.display = 'none';
       } else {
         viewRatingBtn.style.backgroundColor = '#0066cc';
         viewRatingBtn.style.color = 'white';
-        viewVisitsBtn.style.backgroundColor = 'white';
-        viewVisitsBtn.style.color = '#333';
         mapViewTitle.innerHTML = '<span style="color: #2E7D32;">⭐</span> Country Rating Heatmap';
+        mapViewDescription.style.display = 'none';
       }
       
       // Dispatch event to map controller
@@ -211,6 +231,10 @@
       });
       document.dispatchEvent(event);
     }
+    
+    viewTopBtn.addEventListener('click', function() {
+      setActiveView('top');
+    });
     
     viewVisitsBtn.addEventListener('click', function() {
       setActiveView('visits');

@@ -31,12 +31,24 @@ function getRatingColor(rating, homeCountry) {
   return ratingColors[Math.min(rating, 5) - 1]
 }
 
+// Helper function for top countries colors (red → green scale, same as ratings)
+function getTopCountryColor(superScore, homeCountry) {
+  if (homeCountry) return "#1565C0" // Blue for home country
+  if (!superScore) return "#757575" // Visited but no score - dark gray
+  // Red (low) → Yellow (mid) → Green (high)
+  if (superScore >= 4.5) return "#2E7D32" // Dark green
+  if (superScore >= 3.5) return "#7CB342" // Light green
+  if (superScore >= 2.5) return "#FDD835" // Yellow
+  if (superScore >= 1.5) return "#FF9800" // Orange
+  return "#E53935" // Red
+}
+
 export default class extends Controller {
   static values = { data: Array }
 
   connect() {
     console.log("Map connected", this.dataValue, typeof this.dataValue)
-    this.viewMode = 'visits' // 'visits' or 'rating'
+    this.viewMode = 'top' // 'top', 'visits', or 'rating'
     this.renderMap()
     
     // Listen for country changes from checkboxes
@@ -61,8 +73,21 @@ export default class extends Controller {
     // Update the rating in data
     countryData.rating = rating
     
-    // Update map immediately if we're in rating view mode
-    if (this.viewMode === 'rating') {
+    // Recalculate super_score client-side when rating changes
+    if (countryData.visited) {
+      const allVisited = this.dataValue.filter(c => c.visited)
+      const maxVisits = Math.max(...allVisited.map(c => c.visit_count), 2)
+      const normalizedFrequency = Math.min(5, Math.max(1, (Math.log(countryData.visit_count) / Math.log(maxVisits) * 4) + 1))
+      
+      if (rating) {
+        countryData.super_score = parseFloat(((0.70 * rating) + (0.30 * normalizedFrequency)).toFixed(2))
+      } else {
+        countryData.super_score = parseFloat((normalizedFrequency * 0.5).toFixed(2))
+      }
+    }
+    
+    // Update map immediately if we're in rating or top view mode
+    if (this.viewMode === 'rating' || this.viewMode === 'top') {
       this.updateCountryOnMap(countryData)
     }
   }
@@ -91,6 +116,8 @@ export default class extends Controller {
       if (country && country.visited) {
         if (viewMode === 'rating') {
           color = getRatingColor(country.rating, country.home_country)
+        } else if (viewMode === 'top') {
+          color = getTopCountryColor(country.super_score, country.home_country)
         } else {
           color = getVisitColor(country.visit_count, country.home_country)
         }
@@ -110,9 +137,21 @@ export default class extends Controller {
     countryData.visit_count = visitCount > 0 ? visitCount : 1
     countryData.home_country = homeCountry || false
     
-    // Clear rating if country is being unchecked
+    // Clear rating and super_score if country is being unchecked
     if (visitCount === 0) {
       countryData.rating = null
+      countryData.super_score = null
+    } else {
+      // Recalculate super_score client-side when visits change
+      const allVisited = this.dataValue.filter(c => c.visited)
+      const maxVisits = Math.max(...allVisited.map(c => c.visit_count), 2)
+      const normalizedFrequency = Math.min(5, Math.max(1, (Math.log(countryData.visit_count) / Math.log(maxVisits) * 4) + 1))
+      
+      if (countryData.rating) {
+        countryData.super_score = parseFloat(((0.70 * countryData.rating) + (0.30 * normalizedFrequency)).toFixed(2))
+      } else {
+        countryData.super_score = parseFloat((normalizedFrequency * 0.5).toFixed(2))
+      }
     }
     
     // Find and update the corresponding path element
@@ -136,6 +175,8 @@ export default class extends Controller {
         if (countryData.visited) {
           if (viewMode === 'rating') {
             color = getRatingColor(countryData.rating, countryData.home_country)
+          } else if (viewMode === 'top') {
+            color = getTopCountryColor(countryData.super_score, countryData.home_country)
           } else {
             color = getVisitColor(countryData.visit_count, countryData.home_country)
           }
@@ -212,6 +253,8 @@ export default class extends Controller {
             // Use view mode to determine color
             if (this.viewMode === 'rating') {
               return getRatingColor(country.rating, country.home_country)
+            } else if (this.viewMode === 'top') {
+              return getTopCountryColor(country.super_score, country.home_country)
             } else {
               return getVisitColor(country.visit_count || 1, country.home_country)
             }
@@ -406,7 +449,7 @@ export default class extends Controller {
   }
   
   drawLegendContent(legend) {
-    const isRatingMode = this.viewMode === 'rating'
+    const viewMode = this.viewMode
     
     // Add title with instructions
     legend.append("text")
@@ -416,7 +459,7 @@ export default class extends Controller {
       .attr("font-size", "12px")
       .attr("font-weight", "bold")
       .attr("fill", "#333")
-      .text(isRatingMode ? "Country Rating" : "Visit Count")
+      .text(viewMode === 'rating' ? "Country Rating" : viewMode === 'top' ? "Top Countries" : "Visit Count")
     
     legend.append("text")
       .attr("x", 0)
@@ -432,27 +475,43 @@ export default class extends Controller {
       .attr("fill", "#666")
       .text("Shift+Click: Remove")
     
-    const legendData = isRatingMode ? [
-      { label: "Not visited", color: "#E8E8E8" },
-      { label: "🏠 Home country", color: "#1565C0" },
-      { label: "Visited, no rating", color: "#757575" },
-      { label: "1 😞", color: "#E53935" },
-      { label: "2", color: "#FF9800" },
-      { label: "3 😐", color: "#FDD835" },
-      { label: "4", color: "#7CB342" },
-      { label: "5 🤩", color: "#2E7D32" }
-    ] : [
-      { label: "Not visited", color: "#E8E8E8" },
-      { label: "🏠 Home country", color: "#1565C0" },
-      { label: "1 visit", color: "#FFEB3B" },
-      { label: "2 visits", color: "#FFC107" },
-      { label: "3 visits", color: "#FF9800" },
-      { label: "4 visits", color: "#FF5722" },
-      { label: "5 visits", color: "#F44336" },
-      { label: "6-9 visits", color: "#E91E63" },
-      { label: "10-19 visits", color: "#9C27B0" },
-      { label: "20+ visits 🔥", color: "#4A148C" }
-    ]
+    let legendData
+    if (viewMode === 'rating') {
+      legendData = [
+        { label: "Not visited", color: "#E8E8E8" },
+        { label: "🏠 Home country", color: "#1565C0" },
+        { label: "Visited, no rating", color: "#757575" },
+        { label: "1 😞", color: "#E53935" },
+        { label: "2", color: "#FF9800" },
+        { label: "3 😐", color: "#FDD835" },
+        { label: "4", color: "#7CB342" },
+        { label: "5 🤩", color: "#2E7D32" }
+      ]
+    } else if (viewMode === 'top') {
+      legendData = [
+        { label: "Not visited", color: "#E8E8E8" },
+        { label: "🏠 Home country", color: "#1565C0" },
+        { label: "Visited, unrated", color: "#757575" },
+        { label: "Lower", color: "#E53935" },
+        { label: "↓", color: "#FF9800" },
+        { label: "Medium", color: "#FDD835" },
+        { label: "↑", color: "#7CB342" },
+        { label: "Top 🏆", color: "#2E7D32" }
+      ]
+    } else {
+      legendData = [
+        { label: "Not visited", color: "#E8E8E8" },
+        { label: "🏠 Home country", color: "#1565C0" },
+        { label: "1 visit", color: "#FFEB3B" },
+        { label: "2 visits", color: "#FFC107" },
+        { label: "3 visits", color: "#FF9800" },
+        { label: "4 visits", color: "#FF5722" },
+        { label: "5 visits", color: "#F44336" },
+        { label: "6-9 visits", color: "#E91E63" },
+        { label: "10-19 visits", color: "#9C27B0" },
+        { label: "20+ visits 🔥", color: "#4A148C" }
+      ]
+    }
     
     legendData.forEach((item, i) => {
       const legendRow = legend.append("g")
